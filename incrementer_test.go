@@ -13,6 +13,9 @@ func BenchmarkAdd(b *testing.B) {
 	inc := New("couchbase://localhost", "increment", "", 999, 1)
 
 	for i := 0; i < b.N; i++ {
-		inc.Add("test")
+		err := inc.Add("test")
+		if err != nil {
+			b.Error(err)
+		}
 	}
 }
