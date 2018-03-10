@@ -35,33 +35,24 @@ func New(conn, bucketName, bucketPassword string, gap uint64, initial int64) *In
 }
 
 func (i *Incrementer) Add(key string) error {
-	//var current interface{}
-	//cas, err := i.bucket.Get(key, &current)
-	//cas, err := i.bucket.GetAndLock(key, i.ttl, &current)
-	//if err == gocb.ErrKeyNotFound {
-	_, _, err := i.bucket.Counter(key, 1, i.initial, 0)
-	if err != nil {
-		fmt.Println("faszom inner")
-		return err
+	var current interface{}
+	cas, err := i.bucket.GetAndLock(key, i.ttl, &current)
+	if err == gocb.ErrKeyNotFound {
+		_, _, err := i.bucket.Counter(key, 1, i.initial, 0)
+		if err != nil {
+			return err
+		}
 	}
-	/*}
 	if err != nil {
-		fmt.Println("faszom")
 		return err
 	}
 	newValue := current.(float64) + 1
 	if newValue >= float64(i.gap) {
 		newValue = float64(i.initial)
 	}
-	_, err = i.bucket.Replace(key, newValue, cas, 0)*/
+	_, err = i.bucket.Replace(key, newValue, cas, 0)
 
 	// https://developer.couchbase.com/documentation/server/3.x/developer/dev-guide-3.0/lock-items.html
 
-	/*current, _, err := i.bucket.Counter(key, 1, i.initial, 0)
-	if current >= i.gap+1 {
-		_, err = i.bucket.Upsert(key, i.initial, 0)
-		return err
-	}*/
-	//fmt.Printf("Current value: %d\n", curKeyValue)
 	return err
 }
