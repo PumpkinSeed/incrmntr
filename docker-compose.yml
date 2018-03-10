@@ -1,0 +1,40 @@
+version: "2.1"
+services:
+  cb1:
+    image: couchbase/server
+    ports:
+      - 8091:8091
+      - 8092:8092
+      - 8093:8093
+      - 8094:8094
+      - 11210:11210
+    links:
+      - cb2
+    healthcheck:
+      test: "nc -z localhost 8091"
+      interval: 1s
+      retries: 120
+  
+  cb2:
+    image: couchbase/server
+    ports:
+      - 7091:8091
+    healthcheck:
+      test: "nc -z localhost 8091"
+      interval: 1s
+      retries: 120
+
+  test:
+    build:
+      context: .
+      dockerfile: ./docker/go/Dockerfile
+    volumes:
+      - .:/go/src/github.com/PumpkinSeed/incrmntr
+    depends_on:
+      cb1:
+        condition: service_healthy
+      cb2:
+        condition: service_healthy
+    links:
+      - cb1
+      - cb2
