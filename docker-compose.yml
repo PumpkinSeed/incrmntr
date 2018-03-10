@@ -24,6 +24,9 @@ services:
       interval: 1s
       retries: 120
 
+  server_add:
+    
+
   test:
     build:
       context: .
