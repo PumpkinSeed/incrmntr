@@ -35,6 +35,27 @@ func New(conn, bucketName, bucketPassword string, gap uint64, initial int64) *In
 }
 
 func (i *Incrementer) Add(key string) error {
+	return i.add(key)
+}
+
+func (i *Incrementer) AddSafe(key string) error {
+	err := i.add(key)
+	if err == gocb.ErrTmpFail {
+		for {
+			err := i.add("key")
+			if err == nil {
+				break
+			}
+		}
+	}
+	if err != gocb.ErrTmpFail && err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (i *Incrementer) add(key string) error {
 	var current interface{}
 	cas, err := i.bucket.GetAndLock(key, i.ttl, &current)
 	if err == gocb.ErrKeyNotFound {
