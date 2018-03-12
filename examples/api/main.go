@@ -44,11 +44,16 @@ func trigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inc := incrmntr.New(conn[0], bucket[0], "", 999999999999999, 1)
+	inc, err := incrmntr.New(conn[0], bucket[0], "", 999999999999999, 1)
+	if err != nil {
+		fmt.Fprintf(w, err.Error())
+		return
+	}
 	for i := 0; i < amountInt; i++ {
 		err := inc.AddSafe("test")
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintf(w, err.Error())
+			return
 		}
 	}
 

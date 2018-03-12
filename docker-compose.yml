@@ -10,19 +10,11 @@ services:
       - 11210:11210
     links:
       - cb2
-    healthcheck:
-      test: "nc -z localhost 8091"
-      interval: 1s
-      retries: 120
   
   cb2:
     image: couchbase/server
     ports:
       - 7091:8091
-    healthcheck:
-      test: "nc -z localhost 8091"
-      interval: 1s
-      retries: 120
 
 
   test:
@@ -31,11 +23,8 @@ services:
       dockerfile: ./docker/go/Dockerfile
     volumes:
       - .:/go/src/github.com/PumpkinSeed/incrmntr
-    depends_on:
-      cb1:
-        condition: service_healthy
-      cb2:
-        condition: service_healthy
     links:
       - cb1
       - cb2
+    ports:
+      - 8890:9090
