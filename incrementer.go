@@ -6,6 +6,11 @@ import (
 	"github.com/couchbase/gocb"
 )
 
+type Incrmntr interface {
+	Add(key string) error
+	AddSafe(key string) error
+}
+
 type Incrementer struct {
 	bucket  *gocb.Bucket
 	gap     uint64
@@ -13,7 +18,7 @@ type Incrementer struct {
 	ttl     uint32
 }
 
-func New(cluster *gocb.Cluster, bucketName, bucketPassword string, gap uint64, initial int64) (*Incrementer, error) {
+func New(cluster *gocb.Cluster, bucketName, bucketPassword string, gap uint64, initial int64) (Incrmntr, error) {
 	// Open Bucket
 	bucket, err := cluster.OpenBucket(bucketName, bucketPassword)
 	if err != nil {
