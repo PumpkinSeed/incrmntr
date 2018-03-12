@@ -6,11 +6,14 @@ import (
 	"github.com/couchbase/gocb"
 )
 
+// Incrmntr is the base interface of the library
 type Incrmntr interface {
 	Add(key string) error
 	AddSafe(key string) error
 }
 
+// Incrementer is the main struct stores the related data
+// and implements the Incrmntr interface
 type Incrementer struct {
 	bucket  *gocb.Bucket
 	gap     uint64
@@ -18,6 +21,7 @@ type Incrementer struct {
 	ttl     uint32
 }
 
+// New creates a new handler which implements the Incrmntr and setup the buckets
 func New(cluster *gocb.Cluster, bucketName, bucketPassword string, gap uint64, initial int64) (Incrmntr, error) {
 	// Open Bucket
 	bucket, err := cluster.OpenBucket(bucketName, bucketPassword)
@@ -32,10 +36,13 @@ func New(cluster *gocb.Cluster, bucketName, bucketPassword string, gap uint64, i
 	}, nil
 }
 
+// Add is do the increment on the specified key
 func (i *Incrementer) Add(key string) error {
 	return i.add(key)
 }
 
+// AddSafe do the increment on the specified key
+// concurrency and lock safe increment
 func (i *Incrementer) AddSafe(key string) error {
 	err := i.add(key)
 	if err == gocb.ErrTmpFail {
