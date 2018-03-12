@@ -1,7 +1,7 @@
 version: "3"
 services:
   cb1:
-    image: arungupta/couchbase
+    image: couchbase/server
     deploy:
       replicas: 3
     ports:

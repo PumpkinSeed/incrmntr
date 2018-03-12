@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/PumpkinSeed/incrmntr"
+	"github.com/couchbase/gocb"
 )
 
 func main() {
@@ -44,7 +45,17 @@ func trigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inc, err := incrmntr.New(conn[0], bucket[0], "", 999999999999999, 1)
+	cluster, err := gocb.Connect(conn[0])
+	if err != nil {
+		fmt.Fprintf(w, "error connecting to the cluster: %s", err.Error())
+		return
+	}
+	cluster.Authenticate(gocb.PasswordAuthenticator{
+		Username: "Administrator",
+		Password: "password",
+	})
+
+	inc, err := incrmntr.New(cluster, bucket[0], "", 999999999999999, 1)
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 		return

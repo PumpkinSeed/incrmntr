@@ -13,16 +13,11 @@ type Incrementer struct {
 	ttl     uint32
 }
 
-func New(conn, bucketName, bucketPassword string, gap uint64, initial int64) (*Incrementer, error) {
-	cluster, err := gocb.Connect(conn)
-	if err != nil {
-		return nil, fmt.Errorf("error connecting to the cluster:", err)
-	}
-
+func New(cluster *gocb.Cluster, bucketName, bucketPassword string, gap uint64, initial int64) (*Incrementer, error) {
 	// Open Bucket
 	bucket, err := cluster.OpenBucket(bucketName, bucketPassword)
 	if err != nil {
-		return nil, fmt.Errorf("error opening the bucket:", err)
+		return nil, fmt.Errorf("error opening the bucket: %s", err.Error())
 	}
 
 	return &Incrementer{
