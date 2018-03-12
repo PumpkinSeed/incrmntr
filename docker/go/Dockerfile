@@ -7,4 +7,4 @@ ADD ./ /go/src/github.com/PumpkinSeed/incrmntr
 RUN apk add --no-cache gcc musl-dev
 RUN go install github.com/PumpkinSeed/incrmntr
 
-ENTRYPOINT go test -v
+ENTRYPOINT go run examples/api/main.go
