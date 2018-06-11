@@ -4,6 +4,27 @@ Distributed counter based on Couchbase.
 
 ### Usage
 
+#### Non-persistent connection
+
+- `Add`: Simple add plus one to the specified key, if the key has been locked it will return an `gocb.ErrTmpFail`
+- `AddSafe`: Solve the issue occured in the `Add` which cause the `gocb.ErrTmpFail`
+
+```
+err := incrmntr.Add(
+	"couchbase://localhost", 
+	gocb.PasswordAuthenticator{
+		Username: "Administrator",
+		Password: "password",
+	}, 
+	"increment", 
+	"", 
+	"test2",
+)
+// handle error
+```
+
+#### Persistent connection
+
 **New**
 
 ```

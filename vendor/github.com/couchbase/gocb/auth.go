@@ -1,6 +1,8 @@
 package gocb
 
-import "gopkg.in/couchbase/gocbcore.v7"
+import (
+	"gopkg.in/couchbase/gocbcore.v7"
+)
 
 // UserPassPair represents a username and password pair.
 type UserPassPair gocbcore.UserPassPair
@@ -129,8 +131,8 @@ type CertificateAuthenticator struct {
 }
 
 // Credentials returns the credentials for a particular service.
-func (ca CertificateAuthenticator) Credentials(req AuthCredsRequest) ([]gocbcore.UserPassPair, error) {
-	return []gocbcore.UserPassPair{{
+func (ca CertificateAuthenticator) Credentials(req AuthCredsRequest) ([]UserPassPair, error) {
+	return []UserPassPair{{
 		Username: "",
 		Password: "",
 	}}, nil

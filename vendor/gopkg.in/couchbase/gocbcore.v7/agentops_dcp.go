@@ -51,7 +51,7 @@ type VbSeqNoEntry struct {
 type GetVBucketSeqnosCallback func([]VbSeqNoEntry, error)
 
 // OpenStream opens a DCP stream for a particular VBucket.
-func (agent *Agent) OpenStream(vbId uint16, vbUuid VbUuid, startSeqNo, endSeqNo, snapStartSeqNo, snapEndSeqNo SeqNo, evtHandler StreamObserver, cb OpenStreamCallback) (PendingOp, error) {
+func (agent *Agent) OpenStream(vbId uint16, flags DcpStreamAddFlag, vbUuid VbUuid, startSeqNo, endSeqNo, snapStartSeqNo, snapEndSeqNo SeqNo, evtHandler StreamObserver, cb OpenStreamCallback) (PendingOp, error) {
 	var req *memdQRequest
 	handler := func(resp *memdQResponse, _ *memdQRequest, err error) {
 		if resp != nil && resp.Magic == resMagic {
@@ -118,7 +118,7 @@ func (agent *Agent) OpenStream(vbId uint16, vbUuid VbUuid, startSeqNo, endSeqNo,
 	}
 
 	extraBuf := make([]byte, 48)
-	binary.BigEndian.PutUint32(extraBuf[0:], 0)
+	binary.BigEndian.PutUint32(extraBuf[0:], uint32(flags))
 	binary.BigEndian.PutUint32(extraBuf[4:], 0)
 	binary.BigEndian.PutUint64(extraBuf[8:], uint64(startSeqNo))
 	binary.BigEndian.PutUint64(extraBuf[16:], uint64(endSeqNo))

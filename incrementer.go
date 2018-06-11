@@ -1,6 +1,7 @@
 package incrmntr
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/couchbase/gocb"
@@ -10,6 +11,7 @@ import (
 type Incrmntr interface {
 	Add(key string) error
 	AddSafe(key string) error
+	Close() error
 }
 
 // Incrementer is the main struct stores the related data
@@ -38,12 +40,19 @@ func New(cluster *gocb.Cluster, bucketName, bucketPassword string, gap uint64, i
 
 // Add is do the increment on the specified key
 func (i *Incrementer) Add(key string) error {
+	if i.bucket == nil {
+		return errors.New("error bucket is nil")
+	}
 	return i.add(key)
 }
 
 // AddSafe do the increment on the specified key
 // concurrency and lock safe increment
 func (i *Incrementer) AddSafe(key string) error {
+	if i.bucket == nil {
+		return errors.New("error bucket is nil")
+	}
+
 	err := i.add(key)
 	if err == gocb.ErrTmpFail {
 		for {
@@ -58,6 +67,11 @@ func (i *Incrementer) AddSafe(key string) error {
 	}
 
 	return nil
+}
+
+// Close the bucket
+func (i *Incrementer) Close() error {
+	return i.bucket.Close()
 }
 
 func (i *Incrementer) add(key string) error {

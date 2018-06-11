@@ -2,6 +2,7 @@ package gocb
 
 import (
 	"encoding/json"
+	"github.com/opentracing/opentracing-go"
 	"gopkg.in/couchbase/gocbcore.v7"
 	"log"
 )
@@ -71,14 +72,19 @@ func (frag *DocumentFragment) Exists(path string) bool {
 // LookupInBuilder is a builder used to create a set of sub-document lookup operations.
 type LookupInBuilder struct {
 	bucket *Bucket
+	opName string
 	name   string
 	flags  gocbcore.SubdocDocFlag
 	ops    []gocbcore.SubDocOp
 }
 
+func (set *LookupInBuilder) execute(tracectx opentracing.SpanContext) (*DocumentFragment, error) {
+	return set.bucket.lookupIn(tracectx, set)
+}
+
 // Execute executes this set of lookup operations on the bucket.
 func (set *LookupInBuilder) Execute() (*DocumentFragment, error) {
-	return set.bucket.lookupIn(set)
+	return set.execute(nil)
 }
 
 // GetEx allows you to perform a sub-document Get operation with flags
@@ -144,30 +150,40 @@ func (set *LookupInBuilder) GetCount(path string) *LookupInBuilder {
 	return set.GetCountEx(path, SubdocFlagNone)
 }
 
-func (b *Bucket) lookupIn(set *LookupInBuilder) (resOut *DocumentFragment, errOut error) {
+func (b *Bucket) lookupIn(tracectx opentracing.SpanContext, set *LookupInBuilder) (resOut *DocumentFragment, errOut error) {
+	if tracectx == nil {
+		lispan := b.startKvOpTrace(set.opName)
+		defer lispan.Finish()
+		tracectx = lispan.Context()
+	}
+
 	signal := make(chan bool, 1)
-	op, err := b.client.SubDocLookup([]byte(set.name), set.ops, set.flags,
-		func(results []gocbcore.SubDocResult, cas gocbcore.Cas, err error) {
-			errOut = err
+	op, err := b.client.LookupInEx(gocbcore.LookupInOptions{
+		Key:          []byte(set.name),
+		Flags:        set.flags,
+		Ops:          set.ops,
+		TraceContext: tracectx,
+	}, func(res *gocbcore.LookupInResult, err error) {
+		errOut = err
 
-			{
-				resSet := &DocumentFragment{}
-				resSet.contents = make([]subDocResult, len(results))
-				resSet.cas = Cas(cas)
+		if res != nil {
+			resSet := &DocumentFragment{}
+			resSet.contents = make([]subDocResult, len(res.Ops))
+			resSet.cas = Cas(res.Cas)
 
-				for i := range results {
-					resSet.contents[i].path = set.ops[i].Path
-					resSet.contents[i].err = results[i].Err
-					if results[i].Value != nil {
-						resSet.contents[i].data = append([]byte(nil), results[i].Value...)
-					}
+			for i, opRes := range res.Ops {
+				resSet.contents[i].path = set.ops[i].Path
+				resSet.contents[i].err = opRes.Err
+				if opRes.Value != nil {
+					resSet.contents[i].data = append([]byte(nil), opRes.Value...)
 				}
-
-				resOut = resSet
 			}
 
-			signal <- true
-		})
+			resOut = resSet
+		}
+
+		signal <- true
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -187,34 +203,46 @@ func (b *Bucket) lookupIn(set *LookupInBuilder) (resOut *DocumentFragment, errOu
 	}
 }
 
-// LookupInEx creates a sub-document lookup operation builder.
-func (b *Bucket) LookupInEx(key string, flags SubdocDocFlag) *LookupInBuilder {
+func (b *Bucket) startLookupIn(opName string, key string, flags SubdocDocFlag) *LookupInBuilder {
 	return &LookupInBuilder{
 		bucket: b,
 		name:   key,
 		flags:  gocbcore.SubdocDocFlag(flags),
+		opName: opName,
 	}
+}
+
+// LookupInEx creates a sub-document lookup operation builder.
+func (b *Bucket) LookupInEx(key string, flags SubdocDocFlag) *LookupInBuilder {
+	return b.startLookupIn("LookupInEx", key, flags)
 }
 
 // LookupIn creates a sub-document lookup operation builder.
 func (b *Bucket) LookupIn(key string) *LookupInBuilder {
-	return b.LookupInEx(key, 0)
+	return b.startLookupIn("LookupIn", key, 0)
 }
 
 // MutateInBuilder is a builder used to create a set of sub-document mutation operations.
 type MutateInBuilder struct {
-	bucket *Bucket
-	name   string
-	flags  gocbcore.SubdocDocFlag
-	cas    gocbcore.Cas
-	expiry uint32
-	ops    []gocbcore.SubDocOp
-	errs   MultiError
+	bucket    *Bucket
+	opName    string
+	name      string
+	flags     gocbcore.SubdocDocFlag
+	cas       gocbcore.Cas
+	expiry    uint32
+	ops       []gocbcore.SubDocOp
+	errs      MultiError
+	replicaTo uint
+	persistTo uint
+}
+
+func (set *MutateInBuilder) execute(tracectx opentracing.SpanContext) (*DocumentFragment, error) {
+	return set.bucket.mutateIn(tracectx, set)
 }
 
 // Execute executes this set of mutation operations on the bucket.
 func (set *MutateInBuilder) Execute() (*DocumentFragment, error) {
-	return set.bucket.mutateIn(set)
+	return set.execute(nil)
 }
 
 func (set *MutateInBuilder) marshalValue(value interface{}) []byte {
@@ -526,35 +554,65 @@ func (set *MutateInBuilder) Counter(path string, delta int64, createParents bool
 	return set.CounterEx(path, delta, flags)
 }
 
-func (b *Bucket) mutateIn(set *MutateInBuilder) (resOut *DocumentFragment, errOut error) {
+func (b *Bucket) mutateIn(tracectx opentracing.SpanContext, set *MutateInBuilder) (resOut *DocumentFragment, errOut error) {
+	// Perform the base operation
+	res, err := b.mutateInBase(tracectx, set)
+	if err != nil {
+		return res, err
+	}
+
+	// Skip durability if there was none set
+	if set.replicaTo == 0 && set.persistTo == 0 {
+		return res, err
+	}
+
+	// Attempt to satisfy the durability requirements
+	return res, b.durability(tracectx, set.name, res.cas, res.mt, set.replicaTo, set.persistTo, false)
+}
+
+func (b *Bucket) mutateInBase(tracectx opentracing.SpanContext, set *MutateInBuilder) (resOut *DocumentFragment, errOut error) {
+	if tracectx == nil {
+		mispan := b.startKvOpTrace(set.opName)
+		defer mispan.Finish()
+		tracectx = mispan.Context()
+	}
+
 	errOut = set.errs.get()
 	if errOut != nil {
 		return
 	}
 
 	signal := make(chan bool, 1)
-	op, err := b.client.SubDocMutate([]byte(set.name), set.ops, set.flags, set.cas, set.expiry,
-		func(results []gocbcore.SubDocResult, cas gocbcore.Cas, mt gocbcore.MutationToken, err error) {
-			errOut = err
-			if errOut == nil {
-				resSet := &DocumentFragment{
-					cas: Cas(cas),
-					mt:  MutationToken{mt, b},
-				}
-				resSet.contents = make([]subDocResult, len(results))
+	op, err := b.client.MutateInEx(gocbcore.MutateInOptions{
+		Key:          []byte(set.name),
+		Flags:        set.flags,
+		Cas:          set.cas,
+		Expiry:       set.expiry,
+		Ops:          set.ops,
+		TraceContext: tracectx,
+	}, func(res *gocbcore.MutateInResult, err error) {
+		errOut = err
 
-				for i := range results {
-					resSet.contents[i].path = set.ops[i].Path
-					resSet.contents[i].err = results[i].Err
-					if results[i].Value != nil {
-						resSet.contents[i].data = append([]byte(nil), results[i].Value...)
-					}
-				}
-
-				resOut = resSet
+		if res != nil {
+			resSet := &DocumentFragment{
+				cas: Cas(res.Cas),
+				mt:  MutationToken{res.MutationToken, b},
 			}
-			signal <- true
-		})
+			resSet.contents = make([]subDocResult, len(res.Ops))
+
+			for i, opRes := range res.Ops {
+				resSet.contents[i].path = set.ops[i].Path
+				resSet.contents[i].err = opRes.Err
+				if opRes.Value != nil {
+					resSet.contents[i].data = append([]byte(nil), opRes.Value...)
+				}
+			}
+
+			resOut = resSet
+		}
+
+		signal <- true
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -574,18 +632,30 @@ func (b *Bucket) mutateIn(set *MutateInBuilder) (resOut *DocumentFragment, errOu
 	}
 }
 
+func (b *Bucket) startMutateIn(opName string, key string, flags SubdocDocFlag, cas Cas, expiry uint32, replicaTo, persistTo uint) *MutateInBuilder {
+	return &MutateInBuilder{
+		bucket:    b,
+		opName:    opName,
+		name:      key,
+		flags:     gocbcore.SubdocDocFlag(flags),
+		cas:       gocbcore.Cas(cas),
+		expiry:    expiry,
+		replicaTo: replicaTo,
+		persistTo: persistTo,
+	}
+}
+
 // MutateInEx creates a sub-document mutation operation builder.
 func (b *Bucket) MutateInEx(key string, flags SubdocDocFlag, cas Cas, expiry uint32) *MutateInBuilder {
-	return &MutateInBuilder{
-		bucket: b,
-		name:   key,
-		flags:  gocbcore.SubdocDocFlag(flags),
-		cas:    gocbcore.Cas(cas),
-		expiry: expiry,
-	}
+	return b.startMutateIn("MutateInEx", key, flags, cas, expiry, 0, 0)
+}
+
+// MutateInExDura creates a sub-document mutation operation builder with durability.
+func (b *Bucket) MutateInExDura(key string, flags SubdocDocFlag, cas Cas, expiry uint32, replicaTo, persistTo uint) *MutateInBuilder {
+	return b.startMutateIn("MutateInExDura", key, flags, cas, expiry, replicaTo, persistTo)
 }
 
 // MutateIn creates a sub-document mutation operation builder.
 func (b *Bucket) MutateIn(key string, cas Cas, expiry uint32) *MutateInBuilder {
-	return b.MutateInEx(key, 0, cas, expiry)
+	return b.startMutateIn("MutateIn", key, 0, cas, expiry, 0, 0)
 }

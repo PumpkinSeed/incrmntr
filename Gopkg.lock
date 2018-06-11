@@ -4,8 +4,14 @@
 [[projects]]
   name = "github.com/couchbase/gocb"
   packages = ["."]
-  revision = "72b08dc5389b2536dd073f16a093a964edce65eb"
-  version = "v1.3.3"
+  revision = "40eafe80a794c46d9aa8111c5ab6a3ee9810b5f5"
+  version = "v1.3.6"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/golang/snappy"
+  packages = ["."]
+  revision = "2e65f85255dbc3072edf28d6b5b8efc472979f5a"
 
 [[projects]]
   name = "github.com/google/uuid"
@@ -14,10 +20,16 @@
   version = "0.2"
 
 [[projects]]
+  name = "github.com/opentracing/opentracing-go"
+  packages = [".","log"]
+  revision = "1949ddbfd147afd4d964a9f00b24eb291e0e7c38"
+  version = "v1.0.2"
+
+[[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["http2","http2/hpack","idna","lex/httplex"]
-  revision = "d0aafc73d5cdc42264b0af071c261abac580695e"
+  packages = ["context","http/httpguts","http2","http2/hpack","idna"]
+  revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -28,8 +40,8 @@
 [[projects]]
   name = "gopkg.in/couchbase/gocbcore.v7"
   packages = ["."]
-  revision = "de2ebfbb130fe9df6ffdacde73f799f17a72e70b"
-  version = "v7.0.8"
+  revision = "b83e7ae1df3e664ec54638717803154f12223de2"
+  version = "v7.1.1"
 
 [[projects]]
   name = "gopkg.in/couchbaselabs/gocbconnstr.v1"

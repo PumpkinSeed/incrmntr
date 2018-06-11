@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/opentracing/opentracing-go"
 	"golang.org/x/net/http2"
 	"gopkg.in/couchbaselabs/gocbconnstr.v1"
 	"io/ioutil"
@@ -22,6 +23,7 @@ import (
 // This is used internally by the higher level classes for communicating with the cluster,
 // it can also be used to perform more advanced operations with a cluster.
 type Agent struct {
+	clientId          string
 	userString        string
 	auth              AuthProvider
 	bucket            string
@@ -30,11 +32,16 @@ type Agent struct {
 	useMutationTokens bool
 	useKvErrorMaps    bool
 	useEnhancedErrors bool
+	useCompression    bool
+	useDurations      bool
 
 	configLock  sync.Mutex
 	routingInfo routeDataPtr
 	kvErrorMap  kvErrorMapPtr
 	numVbuckets int
+
+	tracer           opentracing.Tracer
+	noRootTraceSpans bool
 
 	serverFailuresLock sync.Mutex
 	serverFailures     map[string]time.Time
@@ -89,6 +96,8 @@ type AgentConfig struct {
 	UseMutationTokens bool
 	UseKvErrorMaps    bool
 	UseEnhancedErrors bool
+	UseCompression    bool
+	UseDurations      bool
 
 	HttpRedialPeriod time.Duration
 	HttpRetryDelay   time.Duration
@@ -101,6 +110,13 @@ type AgentConfig struct {
 	KvPoolSize           int
 	MaxQueueSize         int
 
+	HttpMaxIdleConns        int
+	HttpMaxIdleConnsPerHost int
+	HttpIdleConnTimeout     time.Duration
+
+	Tracer           opentracing.Tracer
+	NoRootTraceSpans bool
+
 	// Username specifies the username to use when connecting.
 	// DEPRECATED
 	Username string
@@ -112,6 +128,26 @@ type AgentConfig struct {
 
 // FromConnStr populates the AgentConfig with information from a
 // Couchbase Connection String.
+// Supported options are:
+//   cacertpath (string) - Path to the CA certificate
+//   certpath (string) - Path to your authentication certificate
+//   keypath (string) - Path to your authentication key
+//   config_total_timeout (int) - Maximum period to attempt to connect to cluster in ms.
+//   config_node_timeout (int) - Maximum period to attempt to connect to a node in ms.
+//   http_redial_period (int) - Maximum period to keep HTTP config connections open in ms.
+//   http_retry_delay (int) - Period to wait between retrying nodes for HTTP config in ms.
+//   config_poll_floor_interval (int) - Minimum time to wait between fetching configs via CCCP in ms.
+//   config_poll_interval (int) - Period to wait between CCCP config polling in ms.
+//   kv_pool_size (int) - The number of connections to establish per node.
+//   max_queue_size (int) - The maximum size of the operation queues per node.
+//   use_kverrmaps (bool) - Whether to enable error maps from the server.
+//   use_enhanced_errors (bool) - Whether to enable enhanced error information.
+//   fetch_mutation_tokens (bool) - Whether to fetch mutation tokens for operations.
+//   compression (bool) - Whether to enable network-wise compression of documents.
+//   server_duration (bool) - Whether to enable fetching server operation durations.
+//   http_max_idle_conns (int) - Maximum number of idle http connections in the pool.
+//   http_max_idle_conns_per_host (int) - Maximum number of idle http connections in the pool per host.
+//   http_idle_conn_timeout (int) - Maximum length of time for an idle connection to stay in the pool in ms.
 func (config *AgentConfig) FromConnStr(connStr string) error {
 	baseSpec, err := gocbconnstr.Parse(connStr)
 	if err != nil {
@@ -325,6 +361,46 @@ func (config *AgentConfig) FromConnStr(connStr string) error {
 		config.UseMutationTokens = val
 	}
 
+	if valStr, ok := fetchOption("compression"); ok {
+		val, err := strconv.ParseBool(valStr)
+		if err != nil {
+			return fmt.Errorf("compression option must be a boolean")
+		}
+		config.UseCompression = val
+	}
+
+	if valStr, ok := fetchOption("server_duration"); ok {
+		val, err := strconv.ParseBool(valStr)
+		if err != nil {
+			return fmt.Errorf("server_duration option must be a boolean")
+		}
+		config.UseDurations = val
+	}
+
+	if valStr, ok := fetchOption("http_max_idle_conns"); ok {
+		val, err := strconv.ParseInt(valStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("http max idle connections option must be a number")
+		}
+		config.HttpMaxIdleConns = int(val)
+	}
+
+	if valStr, ok := fetchOption("http_max_idle_conns_per_host"); ok {
+		val, err := strconv.ParseInt(valStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("http max idle connections per host option must be a number")
+		}
+		config.HttpMaxIdleConnsPerHost = int(val)
+	}
+
+	if valStr, ok := fetchOption("http_idle_conn_timeout"); ok {
+		val, err := strconv.ParseInt(valStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("http idle connection timeout option must be a number")
+		}
+		config.HttpIdleConnTimeout = time.Duration(val) * time.Millisecond
+	}
+
 	return nil
 }
 
@@ -332,11 +408,13 @@ func makeDefaultAuthHandler(authProvider AuthProvider, bucketName string) AuthFu
 	return func(client AuthClient, deadline time.Time) error {
 		creds, err := getKvAuthCreds(authProvider, client.Address())
 		if err != nil {
-			return nil
+			return err
 		}
 
-		if err := SaslAuthPlain(creds.Username, creds.Password, client, deadline); err != nil {
-			return err
+		if creds.Username != "" || creds.Password != "" {
+			if err := SaslAuthPlain(creds.Username, creds.Password, client, deadline); err != nil {
+				return err
+			}
 		}
 
 		if client.SupportsFeature(FeatureSelectBucket) {
@@ -416,13 +494,22 @@ func createAgent(config *AgentConfig, initFn memdInitFunc) (*Agent, error) {
 			KeepAlive: 30 * time.Second,
 		}).Dial,
 		TLSHandshakeTimeout: 10 * time.Second,
+		MaxIdleConns:        config.HttpMaxIdleConns,
+		MaxIdleConnsPerHost: config.HttpMaxIdleConnsPerHost,
+		IdleConnTimeout:     config.HttpIdleConnTimeout,
 	}
 	err := http2.ConfigureTransport(httpTransport)
 	if err != nil {
 		logDebugf("failed to configure http2: %s", err)
 	}
 
+	tracer := config.Tracer
+	if tracer == nil {
+		tracer = opentracing.NoopTracer{}
+	}
+
 	c := &Agent{
+		clientId:   formatCbUid(randomCbUid()),
 		userString: config.UserString,
 		bucket:     config.BucketName,
 		auth:       config.Auth,
@@ -431,9 +518,13 @@ func createAgent(config *AgentConfig, initFn memdInitFunc) (*Agent, error) {
 		httpCli: &http.Client{
 			Transport: httpTransport,
 		},
+		tracer:               tracer,
 		useMutationTokens:    config.UseMutationTokens,
 		useKvErrorMaps:       config.UseKvErrorMaps,
 		useEnhancedErrors:    config.UseEnhancedErrors,
+		useCompression:       config.UseCompression,
+		useDurations:         config.UseDurations,
+		noRootTraceSpans:     config.NoRootTraceSpans,
 		serverFailures:       make(map[string]time.Time),
 		serverConnectTimeout: 7000 * time.Millisecond,
 		serverWaitTimeout:    5 * time.Second,
@@ -805,6 +896,15 @@ func (agent *Agent) VbucketToServer(vbID uint16, replicaIdx uint32) int {
 // connected cluster.
 func (agent *Agent) NumVbuckets() int {
 	return agent.numVbuckets
+}
+
+func (agent *Agent) bucketType() bucketType {
+	routingInfo := agent.routingInfo.Get()
+	if routingInfo == nil {
+		return bktTypeInvalid
+	}
+
+	return routingInfo.bktType
 }
 
 // NumReplicas returns the number of replicas configured on the
