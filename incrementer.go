@@ -17,14 +17,15 @@ type Incrmntr interface {
 // Incrementer is the main struct stores the related data
 // and implements the Incrmntr interface
 type Incrementer struct {
-	bucket  *gocb.Bucket
-	gap     uint64
-	initial int64
-	ttl     uint32
+	bucket        *gocb.Bucket
+	rollover      uint64
+	initial       int64
+	ttl           uint32
+	rolloverByKey bool
 }
 
 // New creates a new handler which implements the Incrmntr and setup the buckets
-func New(cluster *gocb.Cluster, bucketName, bucketPassword string, gap uint64, initial int64) (Incrmntr, error) {
+func New(cluster *gocb.Cluster, bucketName, bucketPassword string, rollover uint64, initial int64) (Incrmntr, error) {
 	// Open Bucket
 	bucket, err := cluster.OpenBucket(bucketName, bucketPassword)
 	if err != nil {
@@ -32,9 +33,9 @@ func New(cluster *gocb.Cluster, bucketName, bucketPassword string, gap uint64, i
 	}
 
 	return &Incrementer{
-		bucket:  bucket,
-		gap:     gap,
-		initial: initial,
+		bucket:   bucket,
+		rollover: rollover,
+		initial:  initial,
 	}, nil
 }
 
@@ -87,7 +88,7 @@ func (i *Incrementer) add(key string) error {
 		return err
 	}
 	newValue := current.(float64) + 1
-	if newValue >= float64(i.gap) {
+	if newValue >= float64(i.rollover) {
 		newValue = float64(i.initial)
 	}
 	_, err = i.bucket.Replace(key, newValue, cas, 0)
