@@ -130,9 +130,12 @@ func (i *Incrementer) add(key string, rollover uint64) error {
 	var err error
 
 	// ---- initKey called first to ensure key will be ready for operation
-	err = i.initKey(key)
+	initHappened, err := i.initKey(key)
 	if err != nil {
 		return err
+	}
+	if initHappened {
+		return nil
 	}
 
 	// ---- get the current value and lock the cas
@@ -158,7 +161,7 @@ func (i *Incrementer) add(key string, rollover uint64) error {
 
 // initKey do the key initialze process, it's means
 // if the key not found, call the Counter which creates it
-func (i *Incrementer) initKey(key string) error {
+func (i *Incrementer) initKey(key string) (bool, error) {
 	i.Lock()
 	defer i.Unlock()
 
@@ -174,17 +177,17 @@ func (i *Incrementer) initKey(key string) error {
 		i.bucket.Counter(key, i.initial, i.initial, 0)
 		happened = true
 	} else {
-		return err
+		return false, err
 	}
 
 	// ---- if action happened then check it's valid and return nil
 	if happened {
 		_, err = i.bucket.Get(key, &v)
-		if err != nil && v.(int64) == i.initial {
-			return nil
+		if err == nil && int64(v.(float64)) == i.initial {
+			return true, nil
 		}
-		return err
+		return false, err
 	}
 
-	return nil
+	return false, nil
 }

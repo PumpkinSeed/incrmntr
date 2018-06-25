@@ -202,7 +202,7 @@ func TestInitKey(t *testing.T) {
 	}
 
 	incrementer := inc.(*Incrementer)
-	err = incrementer.initKey(key)
+	_, err = incrementer.initKey(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -267,7 +267,7 @@ func newCounterTest(init int64, rollover int64) counterTest {
 	return counterTest{
 		init:     init,
 		rollover: rollover,
-		val:      init,
+		val:      init - 1,
 	}
 }
 
