@@ -121,7 +121,9 @@ func (i *Incrementer) AddSafe(key string) error {
 
 // Close the bucket
 func (i *Incrementer) Close() error {
-	return i.bucket.Close()
+	err := i.bucket.Close()
+	i.bucket = nil
+	return err
 }
 
 // add handle the increment mechanism, rollover passed as
