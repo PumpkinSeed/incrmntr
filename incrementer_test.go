@@ -1,12 +1,31 @@
 package incrmntr
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/couchbase/gocb"
 )
 
+var skipTest = map[string]bool{
+	"add":                 false,
+	"addsafe":             false,
+	"addwithrollover":     false,
+	"addsafewithrollover": false,
+	"initkey":             false,
+}
+
 func TestAdd(t *testing.T) {
+	if skipTest["add"] {
+		t.Skip("Add skipped")
+	}
+
+	var rollover = int64(999)
+	var init = int64(1)
+	var key = "ccc9d6ea-59a9-4c3b-b92c-354d6a58bf88-add"
+	var testCounter = newCounterTest(init, rollover)
+
 	cluster, err := gocb.Connect("couchbase://localhost")
 	if err != nil {
 		t.Errorf("error connecting to the cluster: %s", err.Error())
@@ -15,14 +34,182 @@ func TestAdd(t *testing.T) {
 		Username: "Administrator",
 		Password: "password",
 	})
-	//i := New("couchbase://cb1,cb2", "increment", "", 999, 1)
-	i, err := New(cluster, "increment", "", 999, 1)
+	i, err := New(cluster, "increment", "", uint64(rollover), init)
 	if err != nil {
 		t.Error(err)
 	}
-	i.Add("test")
-	i.Add("test")
-	i.Add("test")
+
+	i.Add(key)
+	testCounter.add()
+	i.Add(key)
+	testCounter.add()
+	i.Add(key)
+	testCounter.add()
+	fmt.Println(testCounter.val)
+	val, err := i.Get(key)
+	if err != nil {
+		t.Error(err)
+	}
+	if val != testCounter.val {
+		t.Errorf("Incrementer value should be %d, instead of %d", testCounter.val, val)
+	}
+}
+
+func TestAddSafe(t *testing.T) {
+	if skipTest["addsafe"] {
+		t.Skip("AddSafe skipped")
+	}
+
+	var rollover = int64(99)
+	var init = int64(1)
+	var key = "69c5b879-9090-4bdd-8966-6bf0645f1f65-addsafe"
+	var testCounter = newCounterTest(init, rollover)
+
+	cluster, err := gocb.Connect("couchbase://localhost")
+	if err != nil {
+		t.Errorf("error connecting to the cluster: %s", err.Error())
+	}
+	cluster.Authenticate(gocb.PasswordAuthenticator{
+		Username: "Administrator",
+		Password: "password",
+	})
+	inc, err := New(cluster, "increment", "", uint64(rollover), init)
+	if err != nil {
+		t.Error(err)
+	}
+	var wg sync.WaitGroup
+
+	for i := 0; i < 103; i++ {
+		wg.Add(1)
+		go func() {
+			err := inc.AddSafe(key)
+			testCounter.add()
+			if err != nil {
+				fmt.Println(err)
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	fmt.Println(testCounter.val)
+	val, err := inc.Get(key)
+	if err != nil {
+		t.Error(err)
+	}
+	if val != testCounter.val {
+		t.Errorf("Incrementer value should be %d, instead of %d", testCounter.val, val)
+	}
+}
+
+func TestAddWithRollover(t *testing.T) {
+	if skipTest["addwithrollover"] {
+		t.Skip("AddWithRollover skipped")
+	}
+
+	var rollover = int64(99)
+	var init = int64(1)
+	var key = "43eb1930-1aad-4434-909f-8ee622412a70-addwithrollover"
+	var testCounter = newCounterTest(init, rollover)
+
+	cluster, err := gocb.Connect("couchbase://localhost")
+	if err != nil {
+		t.Errorf("error connecting to the cluster: %s", err.Error())
+	}
+	cluster.Authenticate(gocb.PasswordAuthenticator{
+		Username: "Administrator",
+		Password: "password",
+	})
+
+	i, err := New(cluster, "increment", "", uint64(rollover), init)
+	if err != nil {
+		t.Error(err)
+	}
+
+	i.AddWithRollover(key, 23)
+	testCounter.addWithRollover(23)
+	i.AddWithRollover(key, 23)
+	testCounter.addWithRollover(23)
+	i.AddWithRollover(key, 23)
+	testCounter.addWithRollover(23)
+	fmt.Println(testCounter.val)
+	val, err := i.Get(key)
+	if err != nil {
+		t.Error(err)
+	}
+	if val != testCounter.val {
+		t.Errorf("Incrementer value should be %d, instead of %d", testCounter.val, val)
+	}
+}
+
+func TestAddSafeWithRollover(t *testing.T) {
+	if skipTest["addsafewithrollover"] {
+		t.Skip("AddSafeWithRollover skipped")
+	}
+
+	var rollover = int64(99)
+	var init = int64(1)
+	var key = "3dfa4c60-332b-43c7-bcb7-78ce7b4e37f3-addsafewithrollover"
+	var testCounter = newCounterTest(init, rollover)
+
+	cluster, err := gocb.Connect("couchbase://localhost")
+	if err != nil {
+		t.Errorf("error connecting to the cluster: %s", err.Error())
+	}
+	cluster.Authenticate(gocb.PasswordAuthenticator{
+		Username: "Administrator",
+		Password: "password",
+	})
+	inc, err := New(cluster, "increment", "", uint64(rollover), init)
+	if err != nil {
+		t.Error(err)
+	}
+	var wg sync.WaitGroup
+
+	for i := 0; i < 103; i++ {
+		wg.Add(1)
+		go func() {
+			err := inc.AddSafeWithRollover(key, 55)
+			if err != nil {
+				//fmt.Println(err)
+			}
+			testCounter.addWithRollover(55)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	val, err := inc.Get(key)
+	if err != nil {
+		t.Error(err)
+	}
+	if val != testCounter.val {
+		t.Errorf("Incrementer value should be %d, instead of %d", testCounter.val, val)
+	}
+}
+
+func TestInitKey(t *testing.T) {
+	if skipTest["initkey"] {
+		t.Skip("InitKey skipped")
+	}
+	var key = "5487ecdb-dd84-4de5-83e4-3a2e97d4667f-initkey"
+
+	cluster, err := gocb.Connect("couchbase://localhost")
+	if err != nil {
+		t.Errorf("error connecting to the cluster: %s", err.Error())
+	}
+	cluster.Authenticate(gocb.PasswordAuthenticator{
+		Username: "Administrator",
+		Password: "password",
+	})
+	inc, err := New(cluster, "increment", "", 99, 1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	incrementer := inc.(*Incrementer)
+	err = incrementer.initKey(key)
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 func BenchmarkAdd(b *testing.B) {
@@ -46,4 +233,45 @@ func BenchmarkAdd(b *testing.B) {
 			b.Error(err)
 		}
 	}
+}
+
+/*
+	represent real value
+*/
+
+type counterTest struct {
+	sync.RWMutex
+	init     int64
+	rollover int64
+	val      int64
+}
+
+func newCounterTest(init int64, rollover int64) counterTest {
+	return counterTest{
+		init:     init,
+		rollover: rollover,
+		val:      init,
+	}
+}
+
+func (c *counterTest) add() {
+	c.Lock()
+	defer c.Unlock()
+	if c.val > c.rollover {
+		c.val = c.init
+		return
+	}
+	c.val++
+	return
+}
+
+func (c *counterTest) addWithRollover(rollover int64) {
+	c.Lock()
+	defer c.Unlock()
+	if c.val > rollover {
+		c.val = c.init
+		return
+	}
+	c.val++
+	return
 }
