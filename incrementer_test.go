@@ -1,7 +1,6 @@
 package incrmntr
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 
@@ -45,7 +44,6 @@ func TestAdd(t *testing.T) {
 	testCounter.add()
 	i.Add(key)
 	testCounter.add()
-	fmt.Println(testCounter.val)
 	val, err := i.Get(key)
 	if err != nil {
 		t.Error(err)
@@ -85,13 +83,12 @@ func TestAddSafe(t *testing.T) {
 			err := inc.AddSafe(key)
 			testCounter.add()
 			if err != nil {
-				fmt.Println(err)
+				t.Error(err)
 			}
 			wg.Done()
 		}()
 	}
 	wg.Wait()
-	fmt.Println(testCounter.val)
 	val, err := inc.Get(key)
 	if err != nil {
 		t.Error(err)
@@ -131,7 +128,6 @@ func TestAddWithRollover(t *testing.T) {
 	testCounter.addWithRollover(23)
 	i.AddWithRollover(key, 23)
 	testCounter.addWithRollover(23)
-	fmt.Println(testCounter.val)
 	val, err := i.Get(key)
 	if err != nil {
 		t.Error(err)
@@ -170,7 +166,7 @@ func TestAddSafeWithRollover(t *testing.T) {
 		go func() {
 			err := inc.AddSafeWithRollover(key, 55)
 			if err != nil {
-				//fmt.Println(err)
+				t.Error(err)
 			}
 			testCounter.addWithRollover(55)
 			wg.Done()
@@ -221,14 +217,35 @@ func BenchmarkAdd(b *testing.B) {
 		Username: "Administrator",
 		Password: "password",
 	})
-	//inc := New("couchbase://cb1,cb2", "increment", "", 999, 1)
 	inc, err := New(cluster, "increment", "", 999, 1)
 	if err != nil {
 		b.Error(err)
 	}
 
 	for i := 0; i < b.N; i++ {
-		err := inc.Add("test")
+		err := inc.Add("b88c972c-e7a8-4d47-a67a-5c7f89914595-b-add")
+		if err != nil {
+			b.Error(err)
+		}
+	}
+}
+
+func BenchmarkAddSafe(b *testing.B) {
+	cluster, err := gocb.Connect("couchbase://localhost")
+	if err != nil {
+		b.Errorf("error connecting to the cluster: %s", err.Error())
+	}
+	cluster.Authenticate(gocb.PasswordAuthenticator{
+		Username: "Administrator",
+		Password: "password",
+	})
+	inc, err := New(cluster, "increment", "", 999, 1)
+	if err != nil {
+		b.Error(err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		err := inc.AddSafe("b88c972c-e7a8-4d47-a67a-5c7f89914595-b-addsafe")
 		if err != nil {
 			b.Error(err)
 		}
@@ -257,21 +274,23 @@ func newCounterTest(init int64, rollover int64) counterTest {
 func (c *counterTest) add() {
 	c.Lock()
 	defer c.Unlock()
+	c.val++
 	if c.val > c.rollover {
 		c.val = c.init
 		return
 	}
-	c.val++
+
 	return
 }
 
 func (c *counterTest) addWithRollover(rollover int64) {
 	c.Lock()
 	defer c.Unlock()
+	c.val++
 	if c.val > rollover {
 		c.val = c.init
 		return
 	}
-	c.val++
+
 	return
 }
