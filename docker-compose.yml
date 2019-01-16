@@ -10,21 +10,19 @@ services:
       - 11210:11210
     links:
       - cb2
-  
+
   cb2:
     image: couchbase/server
     ports:
       - 7091:8091
-
-
-  test:
-    build:
-      context: .
-      dockerfile: ./docker/go/Dockerfile
-    volumes:
-      - .:/go/src/github.com/PumpkinSeed/incrmntr
-    links:
-      - cb1
-      - cb2
-    ports:
-      - 8890:9090
+  # test:
+  #   build:
+  #     context: .
+  #     dockerfile: ./docker/go/Dockerfile
+  #   volumes:
+  #     - .:/go/src/github.com/PumpkinSeed/incrmntr
+  #   links:
+  #     - cb1
+  #     - cb2
+  #   ports:
+  #     - 8890:9090

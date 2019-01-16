@@ -13,7 +13,7 @@ func Add(conn string, auth gocb.PasswordAuthenticator, bucketName, bucketPasswor
 	if err != nil {
 		return fmt.Errorf("error connecting to the cluster: %s", err.Error())
 	}
-	defer cluster.Close()
+	//defer cluster.Close()
 
 	cluster.Authenticate(auth)
 	i, err := New(cluster, "increment", "", rollover, initial)
@@ -36,7 +36,7 @@ func AddSafe(conn string, auth gocb.PasswordAuthenticator, bucketName, bucketPas
 	if err != nil {
 		return fmt.Errorf("error connecting to the cluster: %s", err.Error())
 	}
-	defer cluster.Close()
+	//defer cluster.Close()
 
 	cluster.Authenticate(auth)
 	i, err := New(cluster, "increment", "", rollover, initial)

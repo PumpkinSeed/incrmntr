@@ -46,9 +46,6 @@ func New(cluster *gocb.Cluster, bucketName, bucketPassword string, rollover uint
 
 // Get the value of the given key
 func (i *Incrementer) Get(key string) (int64, error) {
-	i.Lock()
-	defer i.Unlock()
-
 	var v interface{}
 	_, err := i.bucket.Get(key, &v)
 
@@ -148,8 +145,6 @@ func (i *Incrementer) add(key string, rollover uint64) error {
 	}
 
 	// ---- do the exact increment mechanism
-	i.Lock()
-	defer i.Unlock()
 	newValue := current.(float64) + 1
 	if newValue > float64(rollover) {
 		newValue = float64(i.initial)
