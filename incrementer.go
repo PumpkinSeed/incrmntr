@@ -178,13 +178,15 @@ func (i *Incrementer) initKey(key string) (bool, error) {
 	}
 
 	// ---- if action happened then check it's valid and return nil
-	if happened {
+	/*if happened {
+		log.Print("happened")
 		_, err = i.bucket.Get(key, &v)
 		if err == nil && int64(v.(float64)) == i.initial {
+			log.Print("true")
 			return true, nil
 		}
 		return false, err
-	}
+	}*/
 
-	return false, nil
+	return happened, nil
 }
