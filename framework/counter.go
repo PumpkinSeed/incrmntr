@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/PumpkinSeed/incrmntr"
-	"github.com/couchbase/gocb"
+	"gopkg.in/couchbase/gocb.v1"
 )
 
 // Counter is the main definition of the counter

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/PumpkinSeed/incrmntr"
-	"github.com/couchbase/gocb"
+	"gopkg.in/couchbase/gocb.v1"
 	"github.com/pkg/profile"
 )
 

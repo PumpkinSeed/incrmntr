@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/PumpkinSeed/incrmntr"
-	"github.com/couchbase/gocb"
+	"gopkg.in/couchbase/gocb.v1"
 )
 
 func main() {

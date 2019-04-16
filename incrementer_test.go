@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/couchbase/gocb"
+	"gopkg.in/couchbase/gocb.v1"
 )
 
 var skipTest = map[string]bool{
