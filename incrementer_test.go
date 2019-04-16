@@ -33,7 +33,7 @@ func TestAdd(t *testing.T) {
 		Username: "Administrator",
 		Password: "password",
 	})
-	i, err := New(cluster, "increment", "", uint64(rollover), init)
+	i, err := New(cluster, "increment", "", uint64(rollover), init, 1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -71,7 +71,7 @@ func TestAddSafe(t *testing.T) {
 		Username: "Administrator",
 		Password: "password",
 	})
-	inc, err := New(cluster, "increment", "", uint64(rollover), init)
+	inc, err := New(cluster, "increment", "", uint64(rollover), init, 1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -117,7 +117,7 @@ func TestAddWithRollover(t *testing.T) {
 		Password: "password",
 	})
 
-	i, err := New(cluster, "increment", "", uint64(rollover), init)
+	i, err := New(cluster, "increment", "", uint64(rollover), init, 1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -155,7 +155,7 @@ func TestAddSafeWithRollover(t *testing.T) {
 		Username: "Administrator",
 		Password: "password",
 	})
-	inc, err := New(cluster, "increment", "", uint64(rollover), init)
+	inc, err := New(cluster, "increment", "", uint64(rollover), init, 1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -196,7 +196,7 @@ func TestInitKey(t *testing.T) {
 		Username: "Administrator",
 		Password: "password",
 	})
-	inc, err := New(cluster, "increment", "", 99, 1)
+	inc, err := New(cluster, "increment", "", 99, 1, 1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -217,7 +217,7 @@ func BenchmarkAdd(b *testing.B) {
 		Username: "Administrator",
 		Password: "password",
 	})
-	inc, err := New(cluster, "increment", "", 999, 1)
+	inc, err := New(cluster, "increment", "", 999, 1, 1)
 	if err != nil {
 		b.Error(err)
 	}
@@ -239,7 +239,7 @@ func BenchmarkAddSafe(b *testing.B) {
 		Username: "Administrator",
 		Password: "password",
 	})
-	inc, err := New(cluster, "increment", "", 999, 1)
+	inc, err := New(cluster, "increment", "", 999, 1, 1)
 	if err != nil {
 		b.Error(err)
 	}
