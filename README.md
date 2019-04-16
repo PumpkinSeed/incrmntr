@@ -23,6 +23,7 @@ Recommendation: Always try to use the `AddSafe`, it's ensure the 100% the key wi
 - `key string`: key to increment
 - `rollover uint64`:  rollover of the key
 - `initial int64`: initial value of the key
+- `inc uin64`: amount of increment
 
 ```
 err := incrmntr.Add(
@@ -36,6 +37,7 @@ err := incrmntr.Add(
 	"test2",
 	999,
 	1,
+	1,
 )
 // handle error
 ```
@@ -45,7 +47,7 @@ err := incrmntr.Add(
 **New**
 
 ```
-New(cluster *gocb.Cluster, bucketName, bucketPassword string, rollover uint64, initial int64) (Incrmntr, error)
+New(cluster *gocb.Cluster, bucketName, bucketPassword string, rollover uint64, initial int64, inc uint64) (Incrmntr, error)
 ```
 
 - `cluster` waits a previously setted up couchbase cluster connection.
@@ -53,6 +55,7 @@ New(cluster *gocb.Cluster, bucketName, bucketPassword string, rollover uint64, i
 - `bucketPassword` waits the password of the bucket
 - `rollover` is the rollover limit
 - `initial` is the initial value if the rollover happens put it back to that number
+- `inc` amount of increment
 
 **Methods**
 
@@ -85,7 +88,7 @@ cluster.Authenticate(gocb.PasswordAuthenticator{
 	Password: "password",
 })
 
-inc, err := incrmntr.New(cluster, "increment", "", 999, 1)
+inc, err := incrmntr.New(cluster, "increment", "", 999, 1, 1)
 // handle error
 
 err := inc.Add("test")
