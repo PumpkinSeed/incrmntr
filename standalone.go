@@ -8,7 +8,7 @@ import (
 
 // Add implements a standalone version off the incrementer's
 // Add method with connect to the Cocuhabse and Close cluster and bucket
-func Add(conn string, auth gocb.PasswordAuthenticator, bucketName, bucketPassword string, key string, rollover uint64, initial int64) error {
+func Add(conn string, auth gocb.PasswordAuthenticator, bucketName, bucketPassword string, key string, rollover uint64, initial int64, inc uint64) error {
 	cluster, err := gocb.Connect(conn)
 	if err != nil {
 		return fmt.Errorf("error connecting to the cluster: %s", err.Error())
@@ -16,7 +16,7 @@ func Add(conn string, auth gocb.PasswordAuthenticator, bucketName, bucketPasswor
 	//defer cluster.Close()
 
 	cluster.Authenticate(auth)
-	i, err := New(cluster, "increment", "", rollover, initial)
+	i, err := New(cluster, "increment", "", rollover, initial, inc)
 	if err != nil {
 		return err
 	}
@@ -31,7 +31,7 @@ func Add(conn string, auth gocb.PasswordAuthenticator, bucketName, bucketPasswor
 
 // AddSafe implements a standalone version off the incrementer's
 // AddSafe method with connect to the Cocuhabse and Close cluster and bucket
-func AddSafe(conn string, auth gocb.PasswordAuthenticator, bucketName, bucketPassword string, key string, rollover uint64, initial int64) error {
+func AddSafe(conn string, auth gocb.PasswordAuthenticator, bucketName, bucketPassword string, key string, rollover uint64, initial int64, inc uint64) error {
 	cluster, err := gocb.Connect(conn)
 	if err != nil {
 		return fmt.Errorf("error connecting to the cluster: %s", err.Error())
@@ -39,7 +39,7 @@ func AddSafe(conn string, auth gocb.PasswordAuthenticator, bucketName, bucketPas
 	//defer cluster.Close()
 
 	cluster.Authenticate(auth)
-	i, err := New(cluster, "increment", "", rollover, initial)
+	i, err := New(cluster, "increment", "", rollover, initial, inc)
 	if err != nil {
 		return err
 	}
