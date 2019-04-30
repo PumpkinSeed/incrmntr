@@ -3,6 +3,7 @@ module github.com/PumpkinSeed/incrmntr
 go 1.12
 
 require (
+	github.com/couchbase/gocb v1.6.1
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/opentracing/opentracing-go v1.1.0 // indirect

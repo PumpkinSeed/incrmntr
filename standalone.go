@@ -3,7 +3,7 @@ package incrmntr
 import (
 	"fmt"
 
-	"gopkg.in/couchbase/gocb.v1"
+	"github.com/couchbase/gocb"
 )
 
 // Add implements a standalone version off the incrementer's
