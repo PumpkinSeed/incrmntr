@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/couchbase/gocb"
+	"gopkg.in/couchbase/gocb.v1"
 )
 
 // Incrmntr is the base interface of the library
@@ -15,7 +15,18 @@ type Incrmntr interface {
 	AddSafe(key string) error
 	AddWithRollover(key string, rollover uint64) error
 	AddSafeWithRollover(key string, rollover uint64) error
+	SetBucket(opts BucketOpts)
 	Close() error
+}
+
+type BucketOpts struct {
+	OperationTimeout      NullTimeout
+	BulkOperationTimeout  NullTimeout
+	DurabilityTimeout     NullTimeout
+	DurabilityPollTimeout NullTimeout
+	ViewTimeout           NullTimeout
+	N1qlTimeout           NullTimeout
+	AnalyticsTimeout      NullTimeout
 }
 
 // Incrementer is the main struct stores the related data
@@ -191,4 +202,28 @@ func (i *Incrementer) initKey(key string) (bool, error) {
 	}*/
 
 	return happened, nil
+}
+
+func (i *Incrementer) SetBucket(opts BucketOpts) {
+	if opts.OperationTimeout.valid {
+		i.bucket.SetOperationTimeout(opts.OperationTimeout.Value)
+	}
+	if opts.BulkOperationTimeout.valid {
+		i.bucket.SetBulkOperationTimeout(opts.BulkOperationTimeout.Value)
+	}
+	if opts.DurabilityTimeout.valid {
+		i.bucket.SetDurabilityTimeout(opts.DurabilityTimeout.Value)
+	}
+	if opts.DurabilityPollTimeout.valid {
+		i.bucket.SetDurabilityPollTimeout(opts.DurabilityPollTimeout.Value)
+	}
+	if opts.ViewTimeout.valid {
+		i.bucket.SetViewTimeout(opts.ViewTimeout.Value)
+	}
+	if opts.N1qlTimeout.valid {
+		i.bucket.SetN1qlTimeout(opts.N1qlTimeout.Value)
+	}
+	if opts.AnalyticsTimeout.valid {
+		i.bucket.SetAnalyticsTimeout(opts.AnalyticsTimeout.Value)
+	}
 }

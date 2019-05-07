@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/couchbase/gocb"
+	"gopkg.in/couchbase/gocb.v1"
 )
 
 func TestBehaviour(t *testing.T) {
