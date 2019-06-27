@@ -16,7 +16,14 @@ func Add(conn string, auth gocb.PasswordAuthenticator, bucketName, bucketPasswor
 	//defer cluster.Close()
 
 	cluster.Authenticate(auth)
-	i, err := New(cluster, "increment", "", rollover, initial, inc)
+
+	// Open Bucket
+	bucket, err := cluster.OpenBucket("increment", "")
+	if err != nil {
+		return err
+	}
+
+	i, err := New(bucket, rollover, initial, inc)
 	if err != nil {
 		return err
 	}
@@ -39,7 +46,13 @@ func AddSafe(conn string, auth gocb.PasswordAuthenticator, bucketName, bucketPas
 	//defer cluster.Close()
 
 	cluster.Authenticate(auth)
-	i, err := New(cluster, "increment", "", rollover, initial, inc)
+
+	// Open Bucket
+	bucket, err := cluster.OpenBucket("increment", "")
+	if err != nil {
+		return err
+	}
+	i, err := New(bucket, rollover, initial, inc)
 	if err != nil {
 		return err
 	}

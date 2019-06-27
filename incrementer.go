@@ -2,7 +2,6 @@ package incrmntr
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"gopkg.in/couchbase/gocb.v1"
@@ -42,13 +41,7 @@ type Incrementer struct {
 }
 
 // New creates a new handler which implements the Incrmntr and setup the buckets
-func New(cluster *gocb.Cluster, bucketName, bucketPassword string, rollover uint64, initial int64, inc uint64) (Incrmntr, error) {
-	// Open Bucket
-	bucket, err := cluster.OpenBucket(bucketName, bucketPassword)
-	if err != nil {
-		return nil, fmt.Errorf("error opening the bucket: %s", err.Error())
-	}
-
+func New(bucket *gocb.Bucket, rollover uint64, initial int64, inc uint64) (Incrmntr, error) {
 	return &Incrementer{
 		bucket:   bucket,
 		rollover: rollover,

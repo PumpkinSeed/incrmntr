@@ -6,6 +6,8 @@ require (
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/opentracing/opentracing-go v1.1.0 // indirect
+	github.com/pkg/profile v1.3.0
+	github.com/rs/xid v1.2.1
 	golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c // indirect
 	gopkg.in/couchbase/gocb.v1 v1.6.1
 	gopkg.in/couchbase/gocbcore.v7 v7.1.13 // indirect

@@ -13,7 +13,6 @@ Recommendation: Always try to use the `AddSafe`, it's ensure the 100% the key wi
 - `Add`: Simple add plus one to the specified key, if the key has been locked it will return an `gocb.ErrTmpFail`
 - `AddSafe`: Solve the issue occured in the `Add` which cause the `gocb.ErrTmpFail`
 
-
 **Parameter list of non-persistent functions**
 
 - `conn string`: connection string to couchbase's cluster
@@ -21,19 +20,19 @@ Recommendation: Always try to use the `AddSafe`, it's ensure the 100% the key wi
 - `bucketName string`: name of the bucket
 - `bucketPassword string`: password of the bucket
 - `key string`: key to increment
-- `rollover uint64`:  rollover of the key
+- `rollover uint64`: rollover of the key
 - `initial int64`: initial value of the key
 - `inc uin64`: amount of increment
 
 ```
 err := incrmntr.Add(
-	"couchbase://localhost", 
+	"couchbase://localhost",
 	gocb.PasswordAuthenticator{
 		Username: "Administrator",
 		Password: "password",
-	}, 
-	"increment", 
-	"", 
+	},
+	"increment",
+	"",
 	"test2",
 	999,
 	1,
@@ -47,7 +46,7 @@ err := incrmntr.Add(
 **New**
 
 ```
-New(cluster *gocb.Cluster, bucketName, bucketPassword string, rollover uint64, initial int64, inc uint64) (Incrmntr, error)
+New(bucket *gocb.Bucket, rollover uint64, initial int64, inc uint64) (Incrmntr, error)
 ```
 
 - `cluster` waits a previously setted up couchbase cluster connection.
@@ -88,7 +87,12 @@ cluster.Authenticate(gocb.PasswordAuthenticator{
 	Password: "password",
 })
 
-inc, err := incrmntr.New(cluster, "increment", "", 999, 1, 1)
+bucket, err := cluster.OpenBucket("increment", "")
+if err != nil {
+	t.Error(err)
+}
+
+inc, err := incrmntr.New(bucket, 999, 1, 1)
 // handle error
 
 err := inc.Add("test")
