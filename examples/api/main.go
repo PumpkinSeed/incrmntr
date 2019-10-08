@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/PumpkinSeed/incrmntr"
-	"gopkg.in/couchbase/gocb.v1"
+	"github.com/couchbase/gocb"
 )
 
 func main() {
@@ -54,8 +54,12 @@ func trigger(w http.ResponseWriter, r *http.Request) {
 		Username: "Administrator",
 		Password: "password",
 	})
+	bucketConn, err := cluster.OpenBucket(bucket[0], "")
+	if err != nil {
+		panic(err)
+	}
 
-	inc, err := incrmntr.New(cluster, bucket[0], "", 999999999999999, 1)
+	inc, err := incrmntr.New(bucketConn, 999, 1, 1)
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 		return

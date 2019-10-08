@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/PumpkinSeed/incrmntr"
-	"gopkg.in/couchbase/gocb.v1"
+	"github.com/couchbase/gocb"
 )
 
 func main() {
@@ -16,7 +16,12 @@ func main() {
 		Username: "Administrator",
 		Password: "password",
 	})
-	inc, err := incrmntr.New(cluster, "increment", "", 999999999999999, 1)
+	bucket, err := cluster.OpenBucket("increment", "")
+	if err != nil {
+		panic(err)
+	}
+
+	inc, err := incrmntr.New(bucket, 999999999999999, 1, 1)
 	if err != nil {
 		fmt.Printf("%s", err.Error())
 	}

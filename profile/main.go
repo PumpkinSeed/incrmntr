@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/PumpkinSeed/incrmntr"
-	"gopkg.in/couchbase/gocb.v1"
+	"github.com/couchbase/gocb"
 	"github.com/pkg/profile"
 )
 
@@ -26,7 +26,7 @@ func main() {
 	}
 
 	if standalone {
-		fmt.Println(standaloneAdd())
+		//fmt.Println(standaloneAdd())
 		return
 	}
 
@@ -34,24 +34,24 @@ func main() {
 	return
 }
 
-func standaloneAdd() error {
-	for i := 0; i < iterationConAndAdd; i++ {
-		err := incrmntr.Add(
-			"couchbase://localhost",
-			gocb.PasswordAuthenticator{
-				Username: "Administrator",
-				Password: "password",
-			},
-			"increment",
-			"",
-			"test2",
-		)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+//func standaloneAdd() error {
+//	for i := 0; i < iterationConAndAdd; i++ {
+//		err := incrmntr.Add(
+//			"couchbase://localhost",
+//			gocb.PasswordAuthenticator{
+//				Username: "Administrator",
+//				Password: "password",
+//			},
+//			"increment",
+//			"",
+//			"test2",
+//		)
+//		if err != nil {
+//			return err
+//		}
+//	}
+//	return nil
+//}
 
 func add() error {
 	cluster, err := gocb.Connect("couchbase://localhost")
@@ -62,8 +62,12 @@ func add() error {
 		Username: "Administrator",
 		Password: "password",
 	})
+	bucket, err := cluster.OpenBucket("increment", "")
+	if err != nil {
+		return err
+	}
 	//inc := New("couchbase://cb1,cb2", "increment", "", 999, 1)
-	inc, err := incrmntr.New(cluster, "increment", "", 999, 1)
+	inc, err := incrmntr.New(bucket, 999,1 , 1)
 	if err != nil {
 		return err
 	}
