@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/PumpkinSeed/incrmntr"
-	"gopkg.in/couchbase/gocb.v1"
+	"github.com/couchbase/gocb"
 )
 
 // Counter is the main definition of the counter
@@ -50,17 +50,21 @@ func (c *couchbase) Init(cfgByte []byte) error {
 		return err
 	}
 
-	cluster, err := gocb.Connect(cfg.Address)
+	cluster, err := gocb.Connect("couchbase://localhost")
+	if err != nil {
+		return err
+	}
+	cluster.Authenticate(gocb.PasswordAuthenticator{
+		Username: "Administrator",
+		Password: "password",
+	})
+	// Open Bucket
+	bucket, err := cluster.OpenBucket("increment", "")
 	if err != nil {
 		return err
 	}
 
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: cfg.Username,
-		Password: cfg.Password,
-	})
-
-	c.inc, err = incrmntr.New(cluster, cfg.Bucket, cfg.BucketPassword, cfg.Rollover, cfg.Initial)
+	c.inc, err = incrmntr.New(bucket, cfg.Rollover, cfg.Initial, 1)
 	if err != nil {
 		return err
 	}

@@ -3,7 +3,7 @@ package incrmntr
 import (
 	"testing"
 
-	"gopkg.in/couchbase/gocb.v1"
+	"github.com/couchbase/gocb"
 )
 
 func TestConAndAdd(t *testing.T) {

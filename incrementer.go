@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 
-	"gopkg.in/couchbase/gocb.v1"
+	"github.com/couchbase/gocb"
 )
 
 // Incrmntr is the base interface of the library

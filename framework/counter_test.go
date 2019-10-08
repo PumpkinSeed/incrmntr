@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"bitbucket.org/fluidpay/processing-engine/pkg/analytics"
-
 	"github.com/rs/xid"
 )
 
 func TestCouchbase(t *testing.T) {
-	counter := NewCouchbase(analytics.Default())
+	counter := NewCouchbase()
 
 	var cfg = config{
 		Address:        "couchbase://localhost",
@@ -60,7 +58,7 @@ func TestCouchbase(t *testing.T) {
 	5.45713 ms/op
 */
 func BenchmarkCouchbase(b *testing.B) {
-	counter := NewCouchbase(analytics.Default())
+	counter := NewCouchbase()
 
 	var cfg = config{
 		Address:        "couchbase://localhost",
