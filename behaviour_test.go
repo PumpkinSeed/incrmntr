@@ -53,7 +53,7 @@ func flow1(t *testing.T, wg *sync.WaitGroup) {
 		wgInner.Add(1)
 		go func() {
 			for _, key := range keys {
-				err := inc.AddSafe(key)
+				_, err := inc.AddSafe(key)
 				if err != nil {
 					t.Error(err)
 				}
@@ -102,7 +102,7 @@ func flow2(t *testing.T, wg *sync.WaitGroup) {
 		wgInner.Add(1)
 		go func() {
 			for _, key := range keys {
-				err := inc.AddSafe(key)
+				_, err := inc.AddSafe(key)
 				if err != nil {
 					t.Error(err)
 				}

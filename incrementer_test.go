@@ -1,6 +1,7 @@
 package incrmntr
 
 import (
+	"github.com/rs/xid"
 	"sync"
 	"testing"
 
@@ -22,7 +23,7 @@ func TestAdd(t *testing.T) {
 
 	var rollover = int64(999)
 	var init = int64(1)
-	var key = "ccc9d6ea-59a9-4c3b-b92c-354d6a58bf88-add"
+	var key = xid.New().String()
 	var testCounter = newCounterTest(init, rollover)
 
 	cluster, err := gocb.Connect("couchbase://localhost")
@@ -66,7 +67,7 @@ func TestAddSafe(t *testing.T) {
 
 	var rollover = int64(99)
 	var init = int64(1)
-	var key = "69c5b879-9090-4bdd-8966-6bf0645f1f65-addsafe"
+	var key = xid.New().String()
 	var testCounter = newCounterTest(init, rollover)
 
 	cluster, err := gocb.Connect("couchbase://localhost")
@@ -92,7 +93,7 @@ func TestAddSafe(t *testing.T) {
 	for i := 0; i < 103; i++ {
 		wg.Add(1)
 		go func() {
-			err := inc.AddSafe(key)
+			_, err := inc.AddSafe(key)
 			testCounter.add()
 			if err != nil {
 				t.Error(err)
@@ -117,7 +118,7 @@ func TestAddWithRollover(t *testing.T) {
 
 	var rollover = int64(99)
 	var init = int64(1)
-	var key = "43eb1930-1aad-4434-909f-8ee622412a70-addwithrollover"
+	var key = xid.New().String()
 	var testCounter = newCounterTest(init, rollover)
 
 	cluster, err := gocb.Connect("couchbase://localhost")
@@ -162,7 +163,7 @@ func TestAddSafeWithRollover(t *testing.T) {
 
 	var rollover = int64(99)
 	var init = int64(1)
-	var key = "3dfa4c60-332b-43c7-bcb7-78ce7b4e37f3-addsafewithrollover"
+	var key = xid.New().String()
 	var testCounter = newCounterTest(init, rollover)
 
 	cluster, err := gocb.Connect("couchbase://localhost")
@@ -188,7 +189,7 @@ func TestAddSafeWithRollover(t *testing.T) {
 	for i := 0; i < 103; i++ {
 		wg.Add(1)
 		go func() {
-			err := inc.AddSafeWithRollover(key, 55)
+			_, err := inc.AddSafeWithRollover(key, 55)
 			if err != nil {
 				t.Error(err)
 			}
@@ -206,11 +207,53 @@ func TestAddSafeWithRollover(t *testing.T) {
 	}
 }
 
+func TestIncrementer_ReturnAdd(t *testing.T) {
+	var rollover = int64(99)
+	var init = int64(1)
+	var key = xid.New().String()
+
+	cluster, err := gocb.Connect("couchbase://localhost")
+	if err != nil {
+		t.Errorf("error connecting to the cluster: %s", err.Error())
+	}
+	cluster.Authenticate(gocb.PasswordAuthenticator{
+		Username: "Administrator",
+		Password: "password",
+	})
+	// Open Bucket
+	bucket, err := cluster.OpenBucket("increment", "")
+	if err != nil {
+		t.Error(err)
+	}
+
+	inc, err := New(bucket, uint64(rollover), init, 1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var value NullInt64
+	for i := 0; i<10;i++ {
+		var err error
+		value, err = inc.AddSafe(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if value.Valid {
+		if value.Value != 10 {
+			t.Errorf("Value should be 10, instead of %d", value.Value)
+		}
+	} else {
+		t.Error("Value should be valid")
+	}
+}
+
 func TestInitKey(t *testing.T) {
 	if skipTest["initkey"] {
 		t.Skip("InitKey skipped")
 	}
-	var key = "5487ecdb-dd84-4de5-83e4-3a2e97d4667f-initkey"
+	var key = xid.New().String()
 
 	cluster, err := gocb.Connect("couchbase://localhost")
 	if err != nil {
@@ -259,7 +302,7 @@ func BenchmarkAdd(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		err := inc.Add("b88c972c-e7a8-4d47-a67a-5c7f89914595-b-add")
+		_, err := inc.Add("b88c972c-e7a8-4d47-a67a-5c7f89914595-b-add")
 		if err != nil {
 			b.Error(err)
 		}
@@ -288,7 +331,7 @@ func BenchmarkAddSafe(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		err := inc.AddSafe("b88c972c-e7a8-4d47-a67a-5c7f89914595-b-addsafe")
+		_, err := inc.AddSafe("b88c972c-e7a8-4d47-a67a-5c7f89914595-b-addsafe")
 		if err != nil {
 			b.Error(err)
 		}

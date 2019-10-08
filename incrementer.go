@@ -10,10 +10,10 @@ import (
 // Incrmntr is the base interface of the library
 type Incrmntr interface {
 	Get(key string) (int64, error)
-	Add(key string) error
-	AddSafe(key string) error
-	AddWithRollover(key string, rollover uint64) error
-	AddSafeWithRollover(key string, rollover uint64) error
+	Add(key string) (NullInt64, error)
+	AddSafe(key string) (NullInt64, error)
+	AddWithRollover(key string, rollover uint64) (NullInt64, error)
+	AddSafeWithRollover(key string, rollover uint64) (NullInt64, error)
 	SetBucket(opts BucketOpts)
 	Close() error
 }
@@ -60,9 +60,9 @@ func (i *Incrementer) Get(key string) (int64, error) {
 
 // AddWithRollover is do the increment on the specified key
 // custom rollover on the key available
-func (i *Incrementer) AddWithRollover(key string, rollover uint64) error {
+func (i *Incrementer) AddWithRollover(key string, rollover uint64) (NullInt64, error) {
 	if i.bucket == nil {
-		return errors.New("error bucket is nil")
+		return nullInt64(), errors.New("error bucket is nil")
 	}
 	return i.add(key, rollover)
 }
@@ -70,56 +70,60 @@ func (i *Incrementer) AddWithRollover(key string, rollover uint64) error {
 // AddSafeWithRollover do the increment on the specified key
 // concurrency and lock safe increment
 // custom rollover on the key available
-func (i *Incrementer) AddSafeWithRollover(key string, rollover uint64) error {
+func (i *Incrementer) AddSafeWithRollover(key string, rollover uint64) (NullInt64, error) {
 	if i.bucket == nil {
-		return errors.New("error bucket is nil")
+		return nullInt64(), errors.New("error bucket is nil")
 	}
 
-	err := i.add(key, rollover)
+	var value NullInt64
+	var err error
+	value, err = i.add(key, rollover)
 	if err == gocb.ErrTmpFail {
 		for {
-			err := i.add(key, rollover)
+			value, err = i.add(key, rollover)
 			if err == nil {
 				break
 			}
 		}
 	}
 	if err != gocb.ErrTmpFail && err != nil {
-		return err
+		return nullInt64(), err
 	}
 
-	return nil
+	return value, nil
 }
 
 // Add is do the increment on the specified key
-func (i *Incrementer) Add(key string) error {
+func (i *Incrementer) Add(key string) (NullInt64, error) {
 	if i.bucket == nil {
-		return errors.New("error bucket is nil")
+		return nullInt64(), errors.New("error bucket is nil")
 	}
 	return i.add(key, i.rollover)
 }
 
 // AddSafe do the increment on the specified key
 // concurrency and lock safe increment
-func (i *Incrementer) AddSafe(key string) error {
+func (i *Incrementer) AddSafe(key string) (NullInt64, error) {
 	if i.bucket == nil {
-		return errors.New("error bucket is nil")
+		return nullInt64(), errors.New("error bucket is nil")
 	}
 
-	err := i.add(key, i.rollover)
+	var value NullInt64
+	var err error
+	value, err = i.add(key, i.rollover)
 	if err == gocb.ErrTmpFail {
 		for {
-			err := i.add(key, i.rollover)
+			value, err = i.add(key, i.rollover)
 			if err == nil {
 				break
 			}
 		}
 	}
 	if err != gocb.ErrTmpFail && err != nil {
-		return err
+		return nullInt64(), err
 	}
 
-	return nil
+	return value, nil
 }
 
 // Close the bucket
@@ -131,23 +135,23 @@ func (i *Incrementer) Close() error {
 
 // add handle the increment mechanism, rollover passed as
 // parameter because there is functions with custom rollover
-func (i *Incrementer) add(key string, rollover uint64) error {
+func (i *Incrementer) add(key string, rollover uint64) (NullInt64, error) {
 	var err error
 
 	// ---- initKey called first to ensure key will be ready for operation
 	initHappened, err := i.initKey(key)
 	if err != nil {
-		return err
+		return nullInt64(), err
 	}
 	if initHappened {
-		return nil
+		return nullInt64(), nil
 	}
 
 	// ---- get the current value and lock the cas
 	var current interface{}
 	cas, err := i.bucket.GetAndLock(key, i.ttl, &current)
 	if err != nil {
-		return err
+		return nullInt64(), err
 	}
 
 	// ---- do the exact increment mechanism
@@ -159,7 +163,7 @@ func (i *Incrementer) add(key string, rollover uint64) error {
 
 	// https://developer.couchbase.com/documentation/server/3.x/developer/dev-guide-3.0/lock-items.html
 
-	return err
+	return nullInt64From(int64(newValue)), err
 }
 
 // initKey do the key initialze process, it's means
@@ -182,17 +186,6 @@ func (i *Incrementer) initKey(key string) (bool, error) {
 	} else {
 		return false, err
 	}
-
-	// ---- if action happened then check it's valid and return nil
-	/*if happened {
-		log.Print("happened")
-		_, err = i.bucket.Get(key, &v)
-		if err == nil && int64(v.(float64)) == i.initial {
-			log.Print("true")
-			return true, nil
-		}
-		return false, err
-	}*/
 
 	return happened, nil
 }

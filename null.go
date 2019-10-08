@@ -27,3 +27,21 @@ func NullTimeoutFrom(dur time.Duration) NullTimeout {
 		Value: dur,
 	}
 }
+
+type NullInt64 struct {
+	Valid bool
+	Value int64
+}
+
+func nullInt64() NullInt64 {
+	return NullInt64{
+		Valid: false,
+	}
+}
+
+func nullInt64From(v int64) NullInt64 {
+	return NullInt64{
+		Valid: true,
+		Value: v,
+	}
+}
