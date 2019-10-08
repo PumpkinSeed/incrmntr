@@ -144,7 +144,7 @@ func (i *Incrementer) add(key string, rollover uint64) (NullInt64, error) {
 		return nullInt64(), err
 	}
 	if initHappened {
-		return nullInt64(), nil
+		return nullInt64From(1), nil
 	}
 
 	// ---- get the current value and lock the cas
