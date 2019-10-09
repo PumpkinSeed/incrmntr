@@ -42,7 +42,7 @@ func flow1(t *testing.T, wg *sync.WaitGroup) {
 		t.Error(err)
 	}
 
-	inc, err := New(bucket, uint64(rollover), init, 1)
+	inc, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -91,7 +91,7 @@ func flow2(t *testing.T, wg *sync.WaitGroup) {
 		t.Error(err)
 	}
 
-	inc, err := New(bucket, uint64(rollover), init, 1)
+	inc, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
 		t.Error(err)
 	}

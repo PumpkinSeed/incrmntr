@@ -1,5 +1,7 @@
 # Incrementer
 
+**[DEPRECATED DOCUMENTATION]** I will update the docs in the next few days. Until you can check the usage in `incrementer_test.go`
+
 Distributed counter based on Couchbase.
 
 ### Usage

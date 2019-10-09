@@ -67,13 +67,13 @@ func add() error {
 		return err
 	}
 	//inc := New("couchbase://cb1,cb2", "increment", "", 999, 1)
-	inc, err := incrmntr.New(bucket, 999,1 , 1)
+	inc, err := incrmntr.New(bucket, 999,1 , 1, true)
 	if err != nil {
 		return err
 	}
 
 	for i := 0; i < iterationAdd; i++ {
-		err := inc.Add("test")
+		_, err := inc.Add("test")
 		if err != nil {
 			return err
 		}
