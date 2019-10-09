@@ -40,7 +40,7 @@ func TestAdd(t *testing.T) {
 		t.Error(err)
 	}
 
-	i, err := New(bucket, uint64(rollover), init, 1)
+	i, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -84,7 +84,7 @@ func TestAddSafe(t *testing.T) {
 		t.Error(err)
 	}
 
-	inc, err := New(bucket, uint64(rollover), init, 1)
+	inc, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -136,7 +136,7 @@ func TestAddWithRollover(t *testing.T) {
 		t.Error(err)
 	}
 
-	i, err := New(bucket, uint64(rollover), init, 1)
+	i, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -180,7 +180,7 @@ func TestAddSafeWithRollover(t *testing.T) {
 		t.Error(err)
 	}
 
-	inc, err := New(bucket, uint64(rollover), init, 1)
+	inc, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -226,7 +226,7 @@ func TestIncrementer_ReturnAdd(t *testing.T) {
 		t.Error(err)
 	}
 
-	inc, err := New(bucket, uint64(rollover), init, 1)
+	inc, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -242,6 +242,48 @@ func TestIncrementer_ReturnAdd(t *testing.T) {
 
 	if value.Valid {
 		if value.Value != 10 {
+			t.Errorf("Value should be 10, instead of %d", value.Value)
+		}
+	} else {
+		t.Error("Value should be valid")
+	}
+}
+
+func TestIncrementer_AddWithoutycle(t *testing.T) {
+	var rollover = int64(99)
+	var init = int64(1)
+	var key = xid.New().String()
+
+	cluster, err := gocb.Connect("couchbase://localhost")
+	if err != nil {
+		t.Errorf("error connecting to the cluster: %s", err.Error())
+	}
+	cluster.Authenticate(gocb.PasswordAuthenticator{
+		Username: "Administrator",
+		Password: "password",
+	})
+	// Open Bucket
+	bucket, err := cluster.OpenBucket("increment", "")
+	if err != nil {
+		t.Error(err)
+	}
+
+	inc, err := New(bucket, uint64(rollover), init, 1, false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var value NullInt64
+	for i := 0; i<110;i++ {
+		var err error
+		value, err = inc.AddSafe(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if value.Valid {
+		if value.Value != 110 {
 			t.Errorf("Value should be 10, instead of %d", value.Value)
 		}
 	} else {
@@ -269,7 +311,7 @@ func TestInitKey(t *testing.T) {
 		t.Error(err)
 	}
 
-	inc, err := New(bucket, 99, 1, 1)
+	inc, err := New(bucket, 99, 1, 1, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -296,7 +338,7 @@ func BenchmarkAdd(b *testing.B) {
 		b.Error(err)
 	}
 
-	inc, err := New(bucket, 999, 1, 1)
+	inc, err := New(bucket, 999, 1, 1, true)
 	if err != nil {
 		b.Error(err)
 	}
@@ -325,7 +367,7 @@ func BenchmarkAddSafe(b *testing.B) {
 		b.Error(err)
 	}
 
-	inc, err := New(bucket, 999, 1, 1)
+	inc, err := New(bucket, 999, 1, 1, true)
 	if err != nil {
 		b.Error(err)
 	}

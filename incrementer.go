@@ -37,16 +37,18 @@ type Incrementer struct {
 	rollover uint64
 	initial  int64
 	inc      uint64
+	cycle    bool
 	ttl      uint32
 }
 
 // New creates a new handler which implements the Incrmntr and setup the buckets
-func New(bucket *gocb.Bucket, rollover uint64, initial int64, inc uint64) (Incrmntr, error) {
+func New(bucket *gocb.Bucket, rollover uint64, initial int64, inc uint64, cycle bool) (Incrmntr, error) {
 	return &Incrementer{
 		bucket:   bucket,
 		rollover: rollover,
 		initial:  initial,
 		inc:      inc,
+		cycle:    cycle,
 	}, nil
 }
 
@@ -156,7 +158,7 @@ func (i *Incrementer) add(key string, rollover uint64) (NullInt64, error) {
 
 	// ---- do the exact increment mechanism
 	newValue := current.(float64) + float64(i.inc)
-	if newValue > float64(rollover) {
+	if i.cycle && newValue > float64(rollover) {
 		newValue = float64(i.initial)
 	}
 	_, err = i.bucket.Replace(key, newValue, cas, 0)
