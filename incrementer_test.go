@@ -1,11 +1,11 @@
 package incrmntr
 
 import (
+	"github.com/couchbase/gocb/v2"
 	"github.com/rs/xid"
 	"sync"
 	"testing"
-
-	"github.com/couchbase/gocb"
+	"time"
 )
 
 var skipTest = map[string]bool{
@@ -20,25 +20,13 @@ func TestAdd(t *testing.T) {
 	if skipTest["add"] {
 		t.Skip("Add skipped")
 	}
-
 	var rollover = int64(999)
 	var init = int64(1)
 	var key = xid.New().String()
 	var testCounter = newCounterTest(init, rollover)
 
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		t.Errorf("error connecting to the cluster: %s", err.Error())
-	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
-	if err != nil {
-		t.Error(err)
-	}
+	bucket, closeCluster := getBucket()
+	defer closeCluster(nil)
 
 	i, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
@@ -70,19 +58,8 @@ func TestAddSafe(t *testing.T) {
 	var key = xid.New().String()
 	var testCounter = newCounterTest(init, rollover)
 
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		t.Errorf("error connecting to the cluster: %s", err.Error())
-	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
-	if err != nil {
-		t.Error(err)
-	}
+	bucket, closeCluster := getBucket()
+	defer closeCluster(nil)
 
 	inc, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
@@ -121,20 +98,8 @@ func TestAddWithRollover(t *testing.T) {
 	var key = xid.New().String()
 	var testCounter = newCounterTest(init, rollover)
 
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		t.Errorf("error connecting to the cluster: %s", err.Error())
-	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
-	if err != nil {
-		t.Error(err)
-	}
+	bucket, closeCluster := getBucket()
+	defer closeCluster(nil)
 
 	i, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
@@ -166,19 +131,8 @@ func TestAddSafeWithRollover(t *testing.T) {
 	var key = xid.New().String()
 	var testCounter = newCounterTest(init, rollover)
 
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		t.Errorf("error connecting to the cluster: %s", err.Error())
-	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
-	if err != nil {
-		t.Error(err)
-	}
+	bucket, closeCluster := getBucket()
+	defer closeCluster(nil)
 
 	inc, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
@@ -212,19 +166,8 @@ func TestIncrementer_ReturnAdd(t *testing.T) {
 	var init = int64(1)
 	var key = xid.New().String()
 
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		t.Errorf("error connecting to the cluster: %s", err.Error())
-	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
-	if err != nil {
-		t.Error(err)
-	}
+	bucket, closeCluster := getBucket()
+	defer closeCluster(nil)
 
 	inc, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
@@ -254,19 +197,8 @@ func TestIncrementer_AddWithoutycle(t *testing.T) {
 	var init = int64(1)
 	var key = xid.New().String()
 
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		t.Errorf("error connecting to the cluster: %s", err.Error())
-	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
-	if err != nil {
-		t.Error(err)
-	}
+	bucket, closeCluster := getBucket()
+	defer closeCluster(nil)
 
 	inc, err := New(bucket, uint64(rollover), init, 1, false)
 	if err != nil {
@@ -297,19 +229,8 @@ func TestInitKey(t *testing.T) {
 	}
 	var key = xid.New().String()
 
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		t.Errorf("error connecting to the cluster: %s", err.Error())
-	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
-	if err != nil {
-		t.Error(err)
-	}
+	bucket, closeCluster := getBucket()
+	defer closeCluster(nil)
 
 	inc, err := New(bucket, 99, 1, 1, true)
 	if err != nil {
@@ -324,25 +245,16 @@ func TestInitKey(t *testing.T) {
 }
 
 func BenchmarkAdd(b *testing.B) {
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		b.Errorf("error connecting to the cluster: %s", err.Error())
-	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
-	if err != nil {
-		b.Error(err)
-	}
+	bucket, closeCluster := getBucket()
+	defer closeCluster(nil)
 
 	inc, err := New(bucket, 999, 1, 1, true)
 	if err != nil {
 		b.Error(err)
 	}
 
+	b.ResetTimer()
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_, err := inc.Add("b88c972c-e7a8-4d47-a67a-5c7f89914595-b-add")
 		if err != nil {
@@ -352,32 +264,39 @@ func BenchmarkAdd(b *testing.B) {
 }
 
 func BenchmarkAddSafe(b *testing.B) {
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		b.Errorf("error connecting to the cluster: %s", err.Error())
-	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
-	if err != nil {
-		b.Error(err)
-	}
+	bucket, closeCluster := getBucket()
+	defer closeCluster(nil)
 
 	inc, err := New(bucket, 999, 1, 1, true)
 	if err != nil {
 		b.Error(err)
 	}
 
+	b.ResetTimer()
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_, err := inc.AddSafe("b88c972c-e7a8-4d47-a67a-5c7f89914595-b-addsafe")
 		if err != nil {
 			b.Error(err)
 		}
 	}
+}
+
+func getBucket() (*gocb.Bucket, func(opts *gocb.ClusterCloseOptions) error) {
+	opts := gocb.ClusterOptions{
+		TimeoutsConfig: gocb.TimeoutsConfig{KVTimeout: 10*time.Second, QueryTimeout: 10*time.Second},
+		Authenticator: gocb.PasswordAuthenticator{
+			"Administrator",
+			"password",
+		},
+	}
+	cluster, err := gocb.Connect("localhost", opts)
+	if err != nil {
+		panic(err)
+	}
+
+	// get a bucket reference
+	return cluster.Bucket("increment"), cluster.Close
 }
 
 /*

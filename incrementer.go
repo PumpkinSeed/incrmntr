@@ -3,8 +3,9 @@ package incrmntr
 import (
 	"errors"
 	"sync"
+	"time"
 
-	"github.com/couchbase/gocb"
+	"github.com/couchbase/gocb/v2"
 )
 
 // Incrmntr is the base interface of the library
@@ -14,7 +15,7 @@ type Incrmntr interface {
 	AddSafe(key string) (NullInt64, error)
 	AddWithRollover(key string, rollover uint64) (NullInt64, error)
 	AddSafeWithRollover(key string, rollover uint64) (NullInt64, error)
-	SetBucket(opts BucketOpts)
+	SetTimeout(timeout time.Duration)
 	Close() error
 }
 
@@ -38,7 +39,7 @@ type Incrementer struct {
 	initial  int64
 	inc      uint64
 	cycle    bool
-	ttl      uint32
+	timeout  time.Duration
 }
 
 // New creates a new handler which implements the Incrmntr and setup the buckets
@@ -49,13 +50,20 @@ func New(bucket *gocb.Bucket, rollover uint64, initial int64, inc uint64, cycle 
 		initial:  initial,
 		inc:      inc,
 		cycle:    cycle,
+		timeout:  5000*time.Millisecond,
 	}, nil
 }
 
 // Get the value of the given key
 func (i *Incrementer) Get(key string) (int64, error) {
 	var v interface{}
-	_, err := i.bucket.Get(key, &v)
+	doc, err := i.bucket.DefaultCollection().Get(key, &gocb.GetOptions{
+		Timeout: i.GetTimeout(),
+	})
+	if err != nil {
+		return 0, err
+	}
+	err = doc.Content(&v)
 
 	return int64(v.(float64)), err
 }
@@ -80,15 +88,14 @@ func (i *Incrementer) AddSafeWithRollover(key string, rollover uint64) (NullInt6
 	var value NullInt64
 	var err error
 	value, err = i.add(key, rollover)
-	if err == gocb.ErrTmpFail {
+	if errors.Is(err, gocb.ErrTemporaryFailure) {
 		for {
 			value, err = i.add(key, rollover)
 			if err == nil {
 				break
 			}
 		}
-	}
-	if err != gocb.ErrTmpFail && err != nil {
+	} else if err != nil {
 		return nullInt64(), err
 	}
 
@@ -113,15 +120,14 @@ func (i *Incrementer) AddSafe(key string) (NullInt64, error) {
 	var value NullInt64
 	var err error
 	value, err = i.add(key, i.rollover)
-	if err == gocb.ErrTmpFail {
+	if errors.Is(err, gocb.ErrTemporaryFailure) {
 		for {
 			value, err = i.add(key, i.rollover)
 			if err == nil {
 				break
 			}
 		}
-	}
-	if err != gocb.ErrTmpFail && err != nil {
+	}else if err != nil {
 		return nullInt64(), err
 	}
 
@@ -130,9 +136,9 @@ func (i *Incrementer) AddSafe(key string) (NullInt64, error) {
 
 // Close the bucket
 func (i *Incrementer) Close() error {
-	err := i.bucket.Close()
+	//err := i.bucket.Close()
 	i.bucket = nil
-	return err
+	return nil
 }
 
 // add handle the increment mechanism, rollover passed as
@@ -151,7 +157,14 @@ func (i *Incrementer) add(key string, rollover uint64) (NullInt64, error) {
 
 	// ---- get the current value and lock the cas
 	var current interface{}
-	cas, err := i.bucket.GetAndLock(key, i.ttl, &current)
+	res, err := i.bucket.DefaultCollection().GetAndLock(key, 100*time.Millisecond, &gocb.GetAndLockOptions{
+		Timeout: i.GetTimeout(),
+	})
+	if err != nil {
+		return nullInt64(), err
+	}
+	cas := res.Cas()
+	err = res.Content(&current)
 	if err != nil {
 		return nullInt64(), err
 	}
@@ -161,7 +174,8 @@ func (i *Incrementer) add(key string, rollover uint64) (NullInt64, error) {
 	if i.cycle && newValue > float64(rollover) {
 		newValue = float64(i.initial)
 	}
-	_, err = i.bucket.Replace(key, newValue, cas, 0)
+
+	_, err = i.bucket.DefaultCollection().Replace(key, newValue, &gocb.ReplaceOptions{Expiry: 0, Cas: cas, Timeout: i.GetTimeout()})
 
 	// https://developer.couchbase.com/documentation/server/3.x/developer/dev-guide-3.0/lock-items.html
 
@@ -174,16 +188,24 @@ func (i *Incrementer) initKey(key string) (bool, error) {
 	i.Lock()
 	defer i.Unlock()
 
-	// ---- v stores the value of the key
-	var v interface{}
-
 	// ---- is a flag, shows any action happened
 	var happened = false
 
 	// ---- check key is exists, if not create it
-	_, err := i.bucket.Get(key, &v)
-	if err == gocb.ErrKeyNotFound {
-		i.bucket.Counter(key, i.initial, i.initial, 0)
+	_, err := i.bucket.DefaultCollection().Get(key, &gocb.GetOptions{
+		Timeout: i.GetTimeout(),
+	})
+	//res.Content(&v)
+	if errors.Is(err, gocb.ErrDocumentNotFound) {
+		_, err = i.bucket.DefaultCollection().Binary().Increment(key, &gocb.IncrementOptions{
+			Initial: i.initial,
+			Delta:   uint64(i.initial),
+			Timeout: i.GetTimeout(),
+			Expiry:  0, // Seconds
+		})
+		if err != nil {
+			return false, err
+		}
 		happened = true
 	} else {
 		return false, err
@@ -192,26 +214,10 @@ func (i *Incrementer) initKey(key string) (bool, error) {
 	return happened, nil
 }
 
-func (i *Incrementer) SetBucket(opts BucketOpts) {
-	if opts.OperationTimeout.valid {
-		i.bucket.SetOperationTimeout(opts.OperationTimeout.Value)
-	}
-	if opts.BulkOperationTimeout.valid {
-		i.bucket.SetBulkOperationTimeout(opts.BulkOperationTimeout.Value)
-	}
-	if opts.DurabilityTimeout.valid {
-		i.bucket.SetDurabilityTimeout(opts.DurabilityTimeout.Value)
-	}
-	if opts.DurabilityPollTimeout.valid {
-		i.bucket.SetDurabilityPollTimeout(opts.DurabilityPollTimeout.Value)
-	}
-	if opts.ViewTimeout.valid {
-		i.bucket.SetViewTimeout(opts.ViewTimeout.Value)
-	}
-	if opts.N1qlTimeout.valid {
-		i.bucket.SetN1qlTimeout(opts.N1qlTimeout.Value)
-	}
-	if opts.AnalyticsTimeout.valid {
-		i.bucket.SetAnalyticsTimeout(opts.AnalyticsTimeout.Value)
-	}
+func (i *Incrementer) GetTimeout() time.Duration {
+	return i.timeout
+}
+
+func (i *Incrementer) SetTimeout(timeout time.Duration) {
+	i.timeout = timeout
 }
