@@ -1,6 +1,6 @@
-module github.com/PumpkinSeed/incrmntr
+module github.com/PumpkinSeed/incrmntr/v2
 
-go 1.12
+go 1.13
 
 require (
 	github.com/couchbase/gocb/v2 v2.0.0
