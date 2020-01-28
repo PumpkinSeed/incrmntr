@@ -3,8 +3,6 @@ package incrmntr
 import (
 	"sync"
 	"testing"
-
-	"github.com/couchbase/gocb"
 )
 
 func TestBehaviour(t *testing.T) {
@@ -28,23 +26,12 @@ func flow1(t *testing.T, wg *sync.WaitGroup) {
 		"2db2e29f-d790-475b-b727-6d89fe38b8d2-common",
 	}
 
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		t.Errorf("error connecting to the cluster: %s", err.Error())
-	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
-	if err != nil {
-		t.Error(err)
-	}
+	bucket, closeCluster := getBucket()
+	defer closeCluster(nil)
 
 	inc, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
-		t.Error(err)
+		t.Error(err.Error())
 	}
 
 	var wgInner sync.WaitGroup
@@ -55,7 +42,7 @@ func flow1(t *testing.T, wg *sync.WaitGroup) {
 			for _, key := range keys {
 				_, err := inc.AddSafe(key)
 				if err != nil {
-					t.Error(err)
+					t.Error(err.Error())
 				}
 			}
 			wgInner.Done()
@@ -76,24 +63,12 @@ func flow2(t *testing.T, wg *sync.WaitGroup) {
 		"2db2e29f-d790-475b-b727-6d89fe38b8d2-common",
 	}
 
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		t.Errorf("error connecting to the cluster: %s", err.Error())
-	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
-	if err != nil {
-		t.Error(err)
-	}
+	bucket, closeCluster := getBucket()
+	defer closeCluster(nil)
 
 	inc, err := New(bucket, uint64(rollover), init, 1, true)
 	if err != nil {
-		t.Error(err)
+		t.Error(err.Error())
 	}
 
 	var wgInner sync.WaitGroup
@@ -104,7 +79,7 @@ func flow2(t *testing.T, wg *sync.WaitGroup) {
 			for _, key := range keys {
 				_, err := inc.AddSafe(key)
 				if err != nil {
-					t.Error(err)
+					t.Error(err.Error())
 				}
 			}
 			wgInner.Done()

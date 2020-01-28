@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"time"
 
 	"github.com/PumpkinSeed/incrmntr"
-	"github.com/couchbase/gocb"
+	"github.com/couchbase/gocb/v2"
 	"github.com/pkg/profile"
 )
 
@@ -54,18 +55,21 @@ func main() {
 //}
 
 func add() error {
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		return fmt.Errorf("error connecting to the cluster: %s", err.Error())
+	opts := gocb.ClusterOptions{
+		TimeoutsConfig: gocb.TimeoutsConfig{KVTimeout: 10*time.Second, QueryTimeout: 10*time.Second},
+		Authenticator: gocb.PasswordAuthenticator{
+			"Administrator",
+			"password",
+		},
 	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-	bucket, err := cluster.OpenBucket("increment", "")
+	cluster, err := gocb.Connect("localhost", opts)
 	if err != nil {
-		return err
+		panic(err)
 	}
+
+	// get a bucket reference
+	bucket := cluster.Bucket("increment")
+
 	//inc := New("couchbase://cb1,cb2", "increment", "", 999, 1)
 	inc, err := incrmntr.New(bucket, 999,1 , 1, true)
 	if err != nil {
