@@ -3,9 +3,10 @@ package framework
 import (
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/PumpkinSeed/incrmntr"
-	"github.com/couchbase/gocb"
+	"github.com/couchbase/gocb/v2"
 )
 
 // Counter is the main definition of the counter
@@ -50,21 +51,25 @@ func (c *couchbase) Init(cfgByte []byte) error {
 		return err
 	}
 
-	cluster, err := gocb.Connect("couchbase://localhost")
-	if err != nil {
-		return err
+	opts := gocb.ClusterOptions{
+		TimeoutsConfig: gocb.TimeoutsConfig{KVTimeout: 10*time.Second, QueryTimeout: 10*time.Second},
+		Authenticator: gocb.PasswordAuthenticator{
+			"Administrator",
+			"password",
+		},
 	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-	// Open Bucket
-	bucket, err := cluster.OpenBucket("increment", "")
+	cluster, err := gocb.Connect("localhost", opts)
+	if err != nil {
+		panic(err)
+	}
+
+	// get a bucket reference
+	bucket := cluster.Bucket("increment")
 	if err != nil {
 		return err
 	}
 
-	c.inc, err = incrmntr.New(bucket, cfg.Rollover, cfg.Initial, 1)
+	c.inc, err = incrmntr.New(bucket, cfg.Rollover, cfg.Initial, 1, false)
 	if err != nil {
 		return err
 	}
@@ -79,7 +84,7 @@ func (c *couchbase) NextVal(key string) (int64, error) {
 	}
 	// c.mut.Lock()
 	// defer c.mut.Unlock()
-	err := c.inc.AddSafe(key)
+	_, err := c.inc.AddSafe(key)
 	if err != nil {
 		return 0, err
 	}
@@ -94,7 +99,7 @@ func (c *couchbase) NextValWithRollover(key string, rollover uint64) (int64, err
 	}
 	// c.mut.Lock()
 	// defer c.mut.Unlock()
-	err := c.inc.AddSafeWithRollover(key, rollover)
+	_, err := c.inc.AddSafeWithRollover(key, rollover)
 	if err != nil {
 		return 0, err
 	}

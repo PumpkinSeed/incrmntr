@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
+	"time"
 
-	"github.com/PumpkinSeed/incrmntr"
-	"github.com/couchbase/gocb"
+	"github.com/couchbase/gocb/v2"
 )
 
 func main() {
@@ -21,56 +20,62 @@ func main() {
 func trigger(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
-	conn, ok := r.Form["conn"]
-	if !ok {
-		fmt.Fprintf(w, "conn not provided")
-		return
-	}
+	//conn, ok := r.Form["conn"]
+	//if !ok {
+	//	fmt.Fprintf(w, "conn not provided")
+	//	return
+	//}
+	//
+	//bucket, ok := r.Form["bucket"]
+	//if !ok {
+	//	fmt.Fprintf(w, "bucket not provided")
+	//	return
+	//}
 
-	bucket, ok := r.Form["bucket"]
-	if !ok {
-		fmt.Fprintf(w, "bucket not provided")
-		return
-	}
+	//amount, ok := r.Form["amount"]
+	//if !ok {
+	//	fmt.Fprintf(w, "amount not provided")
+	//	return
+	//}
+	//
+	//amountInt, err := strconv.Atoi(amount[0])
+	//if err != nil {
+	//	fmt.Fprintf(w, err.Error())
+	//	return
+	//}
+	//
+	//bucketConn, closeC := getBucket()
+	//defer closeC(nil)
 
-	amount, ok := r.Form["amount"]
-	if !ok {
-		fmt.Fprintf(w, "amount not provided")
-		return
-	}
+	//inc, err := incrmntr.New(bucketConn, 999, 1, 1)
+	//if err != nil {
+	//	fmt.Fprintf(w, err.Error())
+	//	return
+	//}
+	//for i := 0; i < amountInt; i++ {
+	//	err := inc.AddSafe("test")
+	//	if err != nil {
+	//		fmt.Fprintf(w, err.Error())
+	//		return
+	//	}
+	//}
 
-	amountInt, err := strconv.Atoi(amount[0])
-	if err != nil {
-		fmt.Fprintf(w, err.Error())
-		return
-	}
+	fmt.Fprintf(w, "done")
+}
 
-	cluster, err := gocb.Connect(conn[0])
-	if err != nil {
-		fmt.Fprintf(w, "error connecting to the cluster: %s", err.Error())
-		return
+func getBucket() (*gocb.Bucket, func(opts *gocb.ClusterCloseOptions) error) {
+	opts := gocb.ClusterOptions{
+		TimeoutsConfig: gocb.TimeoutsConfig{KVTimeout: 10 * time.Second, QueryTimeout: 10 * time.Second},
+		Authenticator: gocb.PasswordAuthenticator{
+			"Administrator",
+			"password",
+		},
 	}
-	cluster.Authenticate(gocb.PasswordAuthenticator{
-		Username: "Administrator",
-		Password: "password",
-	})
-	bucketConn, err := cluster.OpenBucket(bucket[0], "")
+	cluster, err := gocb.Connect("localhost", opts)
 	if err != nil {
 		panic(err)
 	}
 
-	inc, err := incrmntr.New(bucketConn, 999, 1, 1)
-	if err != nil {
-		fmt.Fprintf(w, err.Error())
-		return
-	}
-	for i := 0; i < amountInt; i++ {
-		err := inc.AddSafe("test")
-		if err != nil {
-			fmt.Fprintf(w, err.Error())
-			return
-		}
-	}
-
-	fmt.Fprintf(w, "done")
+	// get a bucket reference
+	return cluster.Bucket("increment"), cluster.Close
 }
